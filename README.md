@@ -18,11 +18,46 @@ Hermes 연결 없이도 로컬 학습과 평가를 실행할 수 있습니다.
 대시보드의 제어기 Agent는 PushT를 대상으로 합니다. 모델 학습 화면에서는
 MuJoCo ALOHA의 학습·평가와 학습 Agent 실험도 실행할 수 있습니다.
 
-실행 결과·영상·모델 가중치·데이터 캐시와 인증 정보는 저장소에 포함하지 않습니다.
+새 실행 결과·모델 가중치·데이터 캐시와 인증 정보는 저장소에 포함하지 않습니다.
+대시보드의 성공 사례 영상 2개·비교용 실패 영상 1개와 출처·측정 메타데이터는
+`frontend/assets/success/`에 포함합니다. 이 영상들은 백엔드나 로컬 `outputs/` 없이도 재생됩니다.
 README의 과거 실행 ID와 결과 경로는 개발 환경의 검증 기록이며 새로 받은 코드에는 없습니다.
 `outputs/`의 기록은 직접 학습·평가를 실행하면 생성됩니다.
 
 ## 여러 방식의 모델 학습과 평가
+
+### 실제로 성공하는 사전학습 정책 실행
+
+공개 모델 `lerobot/act_aloha_sim_transfer_cube_human`을 가져와 로컬 MuJoCo에서
+Cube transfer를 실행할 수 있습니다. 이 모델은 공개된 80,000스텝 학습 체크포인트이며,
+이 프로젝트에서 짧게 학습한 PPO 모델과 별개입니다. 모델 저장소의 설명과 원자료를
+참조하세요: https://huggingface.co/lerobot/act_aloha_sim_transfer_cube_human
+
+```sh
+HF_HOME="$PWD/outputs/hf-cache" TORCH_HOME="$PWD/outputs/torch-cache" \
+  /private/tmp/rx-dev-lerobot-venv/bin/python -m lerobot.processor.migrate_policy_normalization \
+  --pretrained-path lerobot/act_aloha_sim_transfer_cube_human \
+  --revision ba73b2766f1371cdc133ca4efb97eb090d744625 \
+  --output-dir outputs/pretrained/act_aloha_transfer_migrated
+
+/private/tmp/rx-dev-lerobot-venv/bin/python -m backend.pretrained_success \
+  --model outputs/pretrained/act_aloha_transfer_migrated \
+  --output outputs/pretrained-transfer-NEW --full-rollout
+```
+
+LeRobot의 공식 마이그레이션 도구로 정규화 통계를 processor에 옮깁니다.
+모델의 학습 가중치는 다시 학습하지 않습니다. `--full-rollout`은 최초 공식 성공 후에도
+400스텝까지 실제 물리 시뮬레이션을 이어서 녹화하며, 최초 성공과 최종 성공을 별도로 기록합니다.
+2026-10-05 실제 실행에서는 사전에 정한 Seed 42000·42001이 성공했고 42002는 실패했습니다.
+성공한 두 실행은 보상 4에 도달하고 400스텝 종료 시점까지 성공 상태를 유지했습니다.
+세 영상과 전체 reward trace를 보존했습니다. 3개 초기 조건은 일반화 성능 벤치마크가 아닙니다.
+
+대시보드의 사전학습 ACT 기록을 선택하면 모든 실행 영상을 볼 수 있습니다.
+`?report=<실행 ID>` 링크로 특정 기록을 바로 열 수 있습니다.
+대시보드 첫 화면의 **로봇이 작업을 완료하는 순간** 영역에서는 포함된 성공 영상을
+바로 재생하고 다운로드할 수 있습니다. **전체 평가 결과**를 펼치면 성공 2/3의 측정 표와
+실패 영상도 확인할 수 있습니다. `tests/browser_showcase.cjs`는 백엔드 연결을 차단한
+상태에서 이 재생·다운로드·전체 결과·모바일 레이아웃을 검증합니다.
 
 왼쪽 **모델 학습** 메뉴에서 학습 방법과 실행 방식을 선택합니다.
 모방학습은 LeRobot 0.6.1 학습기를, 강화학습은 Stable Baselines3 2.9.0과

@@ -29,6 +29,10 @@
     </section>
     <section id="jobPanel" class="job-panel" hidden aria-live="polite"><div><span class="tiny-dot" id="jobDot"></span><strong id="jobTitle"></strong><span id="jobStatus"></span></div><details><summary>실행 로그</summary><pre id="jobLogs"></pre></details></section>
     <div id="dashboardView">
+      <section id="successShowcase" class="panel success-showcase" aria-label="실제 성공 영상">
+        <div class="panel-heading"><div><p class="eyebrow">ROBOTS COMPLETING TASKS</p><h2>로봇이 작업을 완료하는 순간.</h2><p class="muted">실제 MuJoCo 실행에서 큐브를 집고, 다른 팔에 전달한 기록입니다.</p></div><span class="badge success">실제 성공 확인</span></div>
+        <div id="successGallery" class="success-gallery" aria-live="polite">성공 영상을 불러오는 중…</div>
+      </section>
       <div class="section-heading"><div><h2>실험 결과 <span id="resultKind" class="subtle-tag">평가 기록</span></h2><p id="resultDescription">저장된 실험을 불러오고 있습니다.</p></div><label class="report-picker">실험 기록<select id="reportSelect" aria-label="실험 기록 선택"></select></label></div>
       <div id="empty" class="empty" hidden>아직 완료된 실험이 없습니다. 위에서 실험을 실행해 주세요.</div>
       <div id="agentView" hidden>

@@ -1,5 +1,7 @@
 import {connectAgents} from './hermes.js';
 import {connectTraining} from './training.js';
+import {loadShowcase} from './showcase.js';
+loadShowcase();
 const API = new URLSearchParams(location.search).get('api') || 'http://127.0.0.1:8787';
 const $ = id => document.getElementById(id);
 const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -55,9 +57,20 @@ async function loadReport(id) {
   $('agentView').hidden = result.kind !== 'agent';
   $('videoPanel').hidden = !result.media.length;
   $('resultKind').textContent = result.kind === 'agent' ? result.data.mode === 'quick smoke' ? '빠른 확인' : '독립 평가' : '동작 확인';
-  $('videos').innerHTML = result.media.map(media => `<article><h3>${esc({baseline:'기존 원형 동작',planner:'상태 기반 계획 제어',aloha:'ALOHA · Peg insertion',transfer:'ALOHA · Cube transfer',pusht:'PushT · 원형 동작'}[media.name] || media.name)}</h3><video controls preload="auto" ${media.poster ? `poster="${esc(API + media.poster)}"` : ''} src="${esc(API + media.url)}"></video></article>`).join('');
+  const recordingName = name => {
+    const run = result.data.method === 'pretrained ACT' && result.data.runs.find(run=>run.name===name);
+    return run ? `Cube transfer · Seed ${run.seed} · ${run.success?'성공':'실패'}` : {baseline:'기존 원형 동작',planner:'상태 기반 계획 제어',aloha:'ALOHA · Peg insertion',transfer:'ALOHA · Cube transfer',pusht:'PushT · 원형 동작'}[name] || name;
+  };
+  $('videos').innerHTML = result.media.map(media => `<article><h3>${esc(recordingName(media.name))}</h3><video controls preload="auto" ${media.poster ? `poster="${esc(API + media.poster)}"` : ''} src="${esc(API + media.url)}"></video></article>`).join('');
   $('demoSummary').textContent = '';
   if (result.kind === 'demo') {
+    if (result.data.method === 'pretrained ACT') {
+      $('resultKind').textContent = '학습된 정책 실행';
+      $('resultDescription').textContent = '공개 사전학습 ACT 모델이 MuJoCo에서 큐브를 집어 다른 팔에 전달하는 실행입니다.';
+      $('videoNote').textContent = `${result.data.runs.filter(run=>run.success).length}/${result.data.runs.length} 성공 · 공식 성공 기준: 보상 4 · 실패 실행도 포함`;
+      $('demoSummary').textContent = result.data.runs.map(run=>`Seed ${run.seed} · ${run.success?'성공':'실패'} · 최고 보상 ${run.max_reward} · ${run.steps}스텝`).join(' / ');
+      return;
+    }
     $('resultDescription').textContent = '학습 전 정해진 관절 동작으로 시뮬레이터의 작동을 확인한 기록입니다.';
     $('videoNote').textContent = '관절 동작 데모 · 학습된 정책 없음';
     $('demoSummary').textContent = result.data.runs.map(run => `${run.environment} · ${run.steps}스텝`).join(' / ');
@@ -188,7 +201,7 @@ async function poll() {
 }
 async function boot() {
   $('run').disabled=true;
-  try {await api('/api/health');connected(true);error('');await Promise.all([loadReports(),loadExamples()]);await poll();setInterval(poll,2000);}
+  try {await api('/api/health');connected(true);error('');await Promise.all([loadReports(new URLSearchParams(location.search).get('report')),loadExamples()]);await poll();setInterval(poll,2000);}
   catch(e){connected(false);error('백엔드에 연결할 수 없습니다. sh run_app.sh 실행 상태를 확인해 주세요.');setTimeout(boot,5000);}
 }
 boot();

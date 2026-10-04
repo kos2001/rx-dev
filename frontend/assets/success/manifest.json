@@ -1,0 +1,46 @@
+{
+  "title": "MuJoCo 큐브 전달",
+  "environment": "ALOHA · Cube transfer",
+  "model": "ACT",
+  "model_source": "lerobot/act_aloha_sim_transfer_cube_human",
+  "model_url": "https://huggingface.co/lerobot/act_aloha_sim_transfer_cube_human",
+  "model_revision": "ba73b2766f1371cdc133ca4efb97eb090d744625",
+  "training_steps": 80000,
+  "recorded_at": "2026-10-05",
+  "success_rule": "MuJoCo 환경의 is_success=true · 보상 4",
+  "runs": [
+    {
+      "seed": 42000,
+      "steps": 400,
+      "success": true,
+      "first_success_step": 262,
+      "final_success": true,
+      "max_reward": 4.0,
+      "video": "transfer-act-42000.mp4",
+      "poster": "transfer-act-42000.png",
+      "duration": 8.02
+    },
+    {
+      "seed": 42001,
+      "steps": 400,
+      "success": true,
+      "first_success_step": 280,
+      "final_success": true,
+      "max_reward": 4.0,
+      "video": "transfer-act-42001.mp4",
+      "poster": "transfer-act-42001.png",
+      "duration": 8.02
+    },
+    {
+      "seed": 42002,
+      "steps": 400,
+      "success": false,
+      "first_success_step": null,
+      "final_success": false,
+      "max_reward": 0.0,
+      "video": "transfer-act-42002.mp4",
+      "poster": "transfer-act-42002.png",
+      "duration": 8.02
+    }
+  ]
+}
