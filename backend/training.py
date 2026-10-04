@@ -223,7 +223,7 @@ class TrainingJobs:
             raise ValueError("Invalid evaluation seed")
         if config["device"] not in ("cpu", "mps", "cuda"):
             raise ValueError("Invalid evaluation device")
-        for key, low, high in [("episodes", 1, 20), ("step_limit", 10, 300)]:
+        for key, low, high in [("episodes", 1, 20), ("step_limit", 10, 400)]:
             if type(config[key]) is not int or not low <= config[key] <= high:
                 raise ValueError(f"{key} must be an integer from {low} to {high}")
         config["input"] = ENVIRONMENTS[config["environment"]]["state_input"] if original["policy"] in REINFORCEMENT else "pixels_agent_pos"

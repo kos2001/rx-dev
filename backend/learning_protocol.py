@@ -29,6 +29,9 @@ Return {"verdict":"improved"|"inconclusive"|"regressed","summary":string,"eviden
 "limitations":[string],"next_step":string}. The verdict MUST equal measured_verdict, based on success counts.
 Consider paired outcomes, reward, training time, compute/sample exposure and supplied uncertainty.
 Small development samples and a single training seed do not establish significance or generalization.
+Review the separate frozen-policy holdout, resolver/challenger ledger and final decision.
+When decision is supplied, also return final_verdict equal to decision.verdict.
+An increased development success count is not verified improvement. Report retention gaps and paired uncertainty.
 Never promote a model, rewrite metrics, or treat the design hypothesis as a measured fact.
 """,
 }
@@ -103,7 +106,12 @@ def validate_learning_output(role, result, evidence):
                 isinstance(item[key], str) and len(item[key]) <= 3000 for key in item):
                 raise ValueError("Invalid learning finding")
     elif role == "learning_reviewer":
-        if set(result) != {"verdict", "summary", "evidence", "limitations", "next_step"}:
+        expected = {"verdict", "summary", "evidence", "limitations", "next_step"}
+        if "decision" in evidence:
+            expected.add("final_verdict")
+            if result.get("final_verdict") != evidence["decision"]["verdict"]:
+                raise ValueError("Learning reviewer conflicts with the verified final decision")
+        if set(result) != expected:
             raise ValueError("Invalid learning review schema")
         if result["verdict"] != evidence["measured_verdict"]:
             raise ValueError("Learning reviewer conflicts with measured success counts")

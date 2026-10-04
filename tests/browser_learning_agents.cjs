@@ -22,6 +22,7 @@ const assert=require('node:assert/strict');
     await page.locator('#learningAgentSteps').fill(algorithm==='ppo'?'128':algorithm==='sac'?'64':'1');
     await page.locator('#learningAgentEpisodes').fill('1');
     await page.locator('#learningAgentLimit').fill('10');
+    await page.locator('#learningAgentHoldout').fill('1');
     const launch=page.waitForResponse(r=>r.url().endsWith('/api/learning-agents')&&r.request().method()==='POST');
     await page.locator('#learningAgentStart').click();
     const response=await launch;assert.equal(response.status(),202);
@@ -44,7 +45,12 @@ const assert=require('node:assert/strict');
     assert.equal(state.status,'completed',JSON.stringify({stage:state.stage,error:state.error}));
     assert.equal(Object.keys(state.roles).length,3);
     assert.equal(new Set(Object.values(state.roles).map(r=>r.run_id)).size,3);
-    assert.equal(Object.keys(state.children).length,4);
+    assert.equal(Object.keys(state.children).length,state.harness_version===1?6:4);
+    if(state.harness_version===1){
+      assert.equal(state.decision.automatic_promotion,false);
+      assert.equal(state.roles.learning_reviewer.output.final_verdict,state.decision.verdict);
+      assert.ok(state.holdout.seeds.every(seed=>!state.comparison.seeds.includes(seed)));
+    }
     assert.equal(state.roles.learning_reviewer.output.verdict,state.comparison.measured_verdict);
     assert.deepEqual(state.comparison.seeds,state.evaluation_seeds);
     await page.locator('#learningAgentStatus').filter({hasText:'실험 완료'}).waitFor();

@@ -249,7 +249,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.headers.get("Origin") and self.headers["Origin"] not in ALLOWED_ORIGINS:
             return self.json({"error": "Origin not allowed"}, 403)
         path = urlsplit(self.path).path
-        if path not in {"/api/jobs", "/api/agents", "/api/agents/stop", "/api/training", "/api/training/stop", "/api/training/evaluate", "/api/learning-agents", "/api/learning-agents/stop"}:
+        if path not in {"/api/jobs", "/api/agents", "/api/agents/stop", "/api/training", "/api/training/stop", "/api/training/evaluate", "/api/learning-agents", "/api/learning-agents/stop", "/api/learning-agents/resume"}:
             return self.json({"error": "Not found"}, 404)
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -280,6 +280,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json(self.server.training.start(body), 202)
                 if path == "/api/training/evaluate":
                     return self.json(self.server.training.evaluate(body), 202)
+                if path == "/api/learning-agents/resume":
+                    return self.json(self.server.learning_agents.resume(body), 202)
                 if path == "/api/learning-agents":
                     return self.json(self.server.learning_agents.start(body), 202)
                 if path == "/api/agents":

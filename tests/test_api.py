@@ -74,12 +74,23 @@ class ApiChecks(unittest.TestCase):
         self.assertEqual(self.server.jobs.state()["status"], "idle")
 
     def test_foreign_origin_cannot_launch_job(self):
-        for path in ("/api/jobs", "/api/agents", "/api/agents/stop"):
+        for path in ("/api/jobs", "/api/agents", "/api/agents/stop", "/api/learning-agents/resume"):
             request = Request(self.base + path, data=b'{"example":"pusht-agent"}',
                               headers={"Content-Type": "application/json", "Origin": "https://example.com"})
             with self.assertRaises(HTTPError) as error:
                 urlopen(request)
             self.assertEqual(error.exception.code, 403)
+
+    def test_learning_recovery_route_rejects_unknown_saved_experiment(self):
+        from backend.training import TrainingJobs
+        from backend.learning_agents import LearningAgentJobs
+        training=TrainingJobs(outputs=self.outputs/'training')
+        learning=LearningAgentJobs(training,outputs=self.outputs)
+        with patch.object(self.server,'training',training,create=True), patch.object(self.server,'learning_agents',learning,create=True):
+            request=Request(self.base+'/api/learning-agents/resume',data=json.dumps({'job_id':'f'*32}).encode(),headers={'Content-Type':'application/json'})
+            with self.assertRaises(HTTPError) as error:urlopen(request)
+            self.assertEqual(error.exception.code,400)
+            self.assertEqual(learning.state()['status'],'idle')
 
     def test_agent_jobs_reject_arbitrary_prompts_and_paths(self):
         for body in [{"report_id": "../../private"}, {"report_id": "agent", "prompt": "run arbitrary code"}, {"report_id": "demo"}]:

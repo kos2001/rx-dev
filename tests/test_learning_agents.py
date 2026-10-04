@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 from backend.learning_agents import LearningAgentJobs, measured_comparison, numerical_curve
 from backend.learning_protocol import constraints, proposal, request_body, validate_learning_output
@@ -112,11 +112,29 @@ class LearningChecks(unittest.TestCase):
             training.state=lambda:{'agent_job':'own'}
             agents.stop();self.assertTrue(training.stopped)
 
+    def test_recovery_polls_existing_upstream_role_without_resubmission(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); client=Mock()
+            client.poll_role.return_value={'summary':'saved execution','findings':[]}
+            agents=LearningAgentJobs(Mock(),outputs=root,client=client)
+            folder=agents.folder/('f'*32);folder.mkdir(parents=True)
+            agents.current={'id':'f'*32,'stage':'learning_analyst','roles':{
+                'learning_analyst':{'status':'running','run_id':'existing'}}}
+            output=agents.role('learning_analyst',{'metric':1})
+            self.assertEqual(output['summary'],'saved execution')
+            client.start_role.assert_not_called()
+            self.assertEqual(client.poll_role.call_args.args[0],'existing')
+            self.assertEqual(agents.role('learning_analyst',{'metric':1}),output)
+            self.assertEqual(client.poll_role.call_count,1)
+            with self.assertRaises(ValueError):agents.role('learning_analyst',{'metric':2})
+
     def test_mujoco_workflow_keeps_environment_and_paired_evaluation_conditions(self):
         # Offline role/child fixtures check scheduling; browser checks run real trainers.
         class Training:
             def __init__(self, root):self.root=root;self.calls=[];self.current={'status':'idle'}
             def source(self, identifier):
+                if identifier != 'a'*32:
+                    return self.root / identifier / 'policy.zip',json.loads((self.root / identifier / 'job.json').read_text())
                 return None,{'id':'a'*32,'status':'completed','policy':'ppo',
                              'config':validate({'algorithm':'ppo','environment':'aloha','steps':128})}
             def busy(self):return False
@@ -128,12 +146,20 @@ class LearningChecks(unittest.TestCase):
                 self.calls.append(('evaluate',body,owner))
                 state=self.finish()
                 state['evaluation']={'algorithm':'ppo','environment':'aloha','input':'aloha_joint_object_state',
-                  'seeds':[seed_start],'episodes':1,'step_limit':10,'success_rate':0,'mean_best_reward':0,
-                  'wall_seconds':1,'runs':[{'seed':seed_start,'success':False,'best_reward':0}]}
+                  'seeds':list(range(seed_start,seed_start+body['episodes'])),'episodes':body['episodes'],'step_limit':10,'success_rate':0,'mean_best_reward':0,
+                  'wall_seconds':1,'runs':[{'seed':seed,'success':False,'best_reward':0,'final_success':False,'first_success_step':None,'steps':1,'sum_reward':0,'final_reward':0} for seed in range(seed_start,seed_start+body['episodes'])]}
+                output=self.root/state['id']/'evaluation';output.mkdir()
+                for run in state['evaluation']['runs']:
+                    (output/f"seed-{run['seed']}.json").write_text(json.dumps([{'step':1,'reward':0,'is_success':False}]))
+                (self.root/state['id']/'job.json').write_text(json.dumps(state))
                 return state
             def finish(self):
                 self.current={'id':f'{len(self.calls):032x}','status':'completed','started_at':1,'finished_at':2}
+                folder=self.root/self.current['id'];folder.mkdir()
+                (folder/'policy.zip').write_bytes(b'fixture-checkpoint')
+                (folder/'job.json').write_text(json.dumps(self.current))
                 return self.current
+            def detail(self, job):return job
         class Roles:
             def __init__(self):self.inputs=[]
             def health(self):return {'connected':True}
@@ -142,19 +168,36 @@ class LearningChecks(unittest.TestCase):
             def poll_role(self,run_id,role,evidence,progress,cancelled):
                 if role=='learning_analyst':return {'summary':'fixture','findings':[]}
                 if role=='learning_designer':return {'hypothesis':'fixture','change':{'parameter':'learning_rate','value':.0001},'rationale':'fixture'}
-                return {'verdict':evidence['measured_verdict'],'summary':'fixture','evidence':[],'limitations':[],'next_step':'fixture'}
+                return {'final_verdict':evidence['decision']['verdict'],'verdict':evidence['measured_verdict'],'summary':'fixture','evidence':[],'limitations':[],'next_step':'fixture'}
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);training=Training(root/'training');training.root.mkdir()
             roles=Roles();agents=LearningAgentJobs(training,outputs=root,client=roles)
             agents.start({'source_job':'a'*32,'steps':128,'eval_episodes':1,'step_limit':10})
             agents.worker.join(timeout=5)
             state=agents.state();self.assertEqual(state['status'],'completed',state.get('error'))
-            self.assertEqual(len(training.calls),4)
+            self.assertEqual(len(training.calls),6)
             self.assertTrue(all(body['environment']=='aloha' for kind,body,_ in training.calls if kind=='train'))
             self.assertEqual(state['comparison']['environment'],'aloha')
             self.assertEqual(state['comparison']['simulator']['engine'],'MuJoCo')
             self.assertEqual(state['comparison']['seeds'],state['evaluation_seeds'])
             self.assertEqual([role for role,_ in roles.inputs],['learning_analyst','learning_designer','learning_reviewer'])
+            self.assertFalse(set(state['holdout_seeds']) & set(state['evaluation_seeds']))
+            self.assertEqual(state['decision']['verdict'],'inconclusive')
+            self.assertNotIn('holdout_seeds',roles.inputs[1][1])
+            self.assertEqual(len(state['checkpoint_receipts']),2)
+            # Simulate a crash after all children finished: no duplicate jobs or role submissions.
+            agents.update(status='interrupted')
+            restarted=LearningAgentJobs(training,outputs=root,client=roles)
+            restarted.resume({'job_id':state['id']});restarted.worker.join(timeout=5)
+            self.assertEqual(restarted.state()['status'],'completed',restarted.state().get('error'))
+            self.assertEqual(len(training.calls),6)
+            self.assertEqual(len(roles.inputs),3)
+            # A checkpoint edited after final evaluation must invalidate a resumed experiment.
+            restarted.update(status='interrupted')
+            (training.root/state['children']['train_candidate']/'policy.zip').write_bytes(b'changed')
+            restarted.resume({'job_id':state['id']});restarted.worker.join(timeout=5)
+            self.assertEqual(restarted.state()['status'],'failed')
+            self.assertIn('checkpoint changed',restarted.state()['error'])
 
 
 if __name__=='__main__':unittest.main()

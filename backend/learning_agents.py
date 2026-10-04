@@ -9,7 +9,8 @@ import uuid
 
 from .agent_jobs import AgentJobs
 from .hermes import RejectedOutput
-from .learning_protocol import constraints, proposal, request_body, SKILLS
+from .learning_protocol import constraints, proposal, request_body, SKILLS, validate_learning_output
+from .learning_harness import checkpoint_receipt, runtime_versions, evidence_ledger, final_decision, verify_episode_traces
 from .training import validate
 from .training_methods import IMITATION
 from .learning_environments import environment_of, evaluation_supported, ENVIRONMENTS
@@ -89,6 +90,13 @@ def measured_comparison(baseline, candidate):
         successes = sum(r["success"] for r in runs)
         if not math.isclose(metrics["success_rate"], successes / len(runs)):
             raise ValueError("Success rate differs from episode outcomes")
+        rewards = [r["best_reward"] for r in runs]
+        if any(type(value) not in (int, float) or not math.isfinite(value) for value in rewards):
+            raise ValueError("Evaluation rewards must be finite numeric measurements")
+        if not math.isclose(metrics["mean_best_reward"], sum(rewards) / len(rewards), rel_tol=1e-6, abs_tol=1e-6):
+            raise ValueError("Mean reward differs from episode outcomes")
+        if not math.isfinite(metrics["wall_seconds"]) or metrics["wall_seconds"] < 0:
+            raise ValueError("Invalid evaluation duration")
         arms[name] = {"successes": successes, "episodes": len(runs),
                       "success_rate": metrics["success_rate"], "success_interval_95": interval(successes, len(runs)),
                       "mean_best_reward": metrics["mean_best_reward"], "evaluation_seconds": metrics["wall_seconds"]}
@@ -121,6 +129,7 @@ class LearningAgentJobs(AgentJobs):
         for path in self.folder.glob("*/job.json"):
             record = json.loads(path.read_text())
             used.update(record.get("evaluation_seeds", []))
+            used.update(record.get("holdout_seeds", []))
             if type(record.get("training_seed")) is int:
                 used.add(record["training_seed"])
         for path in [*self.outputs.glob("agents/*/job.json"), *self.outputs.glob("improvement-*/*.json")]:
@@ -140,7 +149,7 @@ class LearningAgentJobs(AgentJobs):
         return list(range(first, first + episodes)), training_seed
 
     def start(self, body):
-        if set(body) - {"source_job", "steps", "eval_episodes", "step_limit", "device"}:
+        if set(body) - {"source_job", "steps", "eval_episodes", "step_limit", "device", "holdout_episodes"}:
             raise ValueError("Unknown learning-agent option")
         _, parent = self.training.source(body.get("source_job"))
         if parent["status"] != "completed":
@@ -150,10 +159,11 @@ class LearningAgentJobs(AgentJobs):
         if imitation and not evaluation_supported(parent["config"]):
             raise ValueError("Learning agents require the official dataset matching the simulator")
         steps, episodes, step_limit = body.get("steps", 128), body.get("eval_episodes", 3), body.get("step_limit", 100)
+        holdout_episodes = body.get("holdout_episodes", 10)
         minimum = 1 if imitation else 128 if algorithm == "ppo" else 64
         maximum = 512 if imitation else 2048
         for value, low, high, label in [(steps, minimum, maximum, "steps"), (episodes, 1, 5, "eval_episodes"),
-                                        (step_limit, 10, 300, "step_limit")]:
+                                        (step_limit, 10, 400, "step_limit"), (holdout_episodes, 1, 20, "holdout_episodes")]:
             if type(value) is not int or not low <= value <= high:
                 raise ValueError(f"{label} must be an integer from {low} to {high}")
         if algorithm == "ppo" and steps % 128:
@@ -172,7 +182,9 @@ class LearningAgentJobs(AgentJobs):
         with self.lock:
             if self.current and self.current["status"] == "running" or self.training.busy():
                 raise RuntimeError("A learning experiment is already running")
-            eval_seeds, training_seed = self.reserve(episodes)
+            eval_seeds, training_seed = self.reserve(episodes + holdout_episodes)
+            holdout_seeds = eval_seeds[episodes:]
+            eval_seeds = eval_seeds[:episodes]
             baseline["seed"] = training_seed
             history = []
             blocked = []
@@ -203,9 +215,44 @@ class LearningAgentJobs(AgentJobs):
             self.current = {"id": identifier, "source_job": parent["id"], "algorithm": algorithm, "environment": baseline["environment"], "profile": "rx-dev",
                             "status": "running", "stage": "learning_analyst", "started_at": time.time(), "roles": {},
                             "skills": SKILLS, "training_seed": training_seed, "evaluation_seeds": eval_seeds,
-                            "baseline_config": baseline, "step_limit": step_limit, "children": {}}
+                            "baseline_config": baseline, "step_limit": step_limit, "children": {},
+                            "harness_version": 1, "holdout_seeds": holdout_seeds, "events": [],
+                            "runtime_versions": runtime_versions(), "checkpoint_receipts": {}, "child_receipts": {}}
             self.save()
             (folder / "evidence.json").write_text(json.dumps(evidence, ensure_ascii=False, indent=2))
+            import threading
+            self.worker = threading.Thread(target=self.run, args=(folder, evidence), daemon=True)
+            self.worker.start()
+            return self.state()
+
+    def update(self, **fields):
+        with self.lock:
+            if "stage" in fields and fields["stage"] != self.current.get("stage"):
+                self.current.setdefault("events", []).append({"stage": fields["stage"], "at": time.time()})
+            super().update(**fields)
+
+    def resume(self, body):
+        if set(body) != {"job_id"}:
+            raise ValueError("Expected only job_id")
+        with self.lock:
+            if not self.current or body["job_id"] != self.current["id"]:
+                raise ValueError("Select the current saved experiment")
+            if self.current["status"] not in {"interrupted", "failed", "cancelled"}:
+                raise ValueError("Only interrupted, failed or cancelled experiments can resume")
+            if self.current.get("harness_version") != 1:
+                raise ValueError("Legacy experiments have no resumable harness state")
+            if self.worker and self.worker.is_alive() or self.training.busy():
+                raise RuntimeError("Experiment worker or trainer is still active")
+            if not self.client.health().get("connected"):
+                raise RuntimeError("rx-dev Hermes gateway is not connected")
+            if self.current["runtime_versions"] != runtime_versions():
+                raise ValueError("Runtime versions changed; start a new experiment")
+            folder = self.folder / self.current["id"]
+            evidence = json.loads((folder / "evidence.json").read_text())
+            self.cancelled.clear()
+            self.current.pop("error", None)
+            self.current.pop("finished_at", None)
+            self.update(status="running", resumed_at=time.time())
             import threading
             self.worker = threading.Thread(target=self.run, args=(folder, evidence), daemon=True)
             self.worker.start()
@@ -214,13 +261,43 @@ class LearningAgentJobs(AgentJobs):
     def role(self, name, evidence):
         if self.cancelled.is_set():
             raise RuntimeError("Learning experiment cancelled")
-        return super().role(name, evidence)
+        path = self.folder / self.current["id"] / f"input_{name}.json"
+        encoded = json.dumps(evidence, sort_keys=True, ensure_ascii=False)
+        if path.exists() and path.read_text() != encoded:
+            raise ValueError("Saved Agent input changed; start a new experiment")
+        path.write_text(encoded)
+        record = self.current["roles"].get(name)
+        if record and record["status"] == "completed":
+            return validate_learning_output(name, record["output"], evidence)
+        if record:
+            # Poll the saved upstream execution rather than submitting duplicate work.
+            self.update(stage=name)
+            def progress(status):
+                with self.lock:
+                    record["status"] = status
+                    self.save()
+            output = self.client.poll_role(record["run_id"], name, evidence, progress, self.cancelled)
+            validate_learning_output(name, output, evidence)
+            record.update(status="completed", output=output)
+            self.save()
+            return output
+        return validate_learning_output(name, super().role(name, evidence), evidence)
 
     def child(self, name, start):
         with self.lock:
             if self.cancelled.is_set():
                 raise RuntimeError("Learning experiment cancelled")
             self.update(stage=name)
+            saved = self.current["children"].get(name)
+            if saved:
+                path = self.training.root / saved / "job.json"
+                if path.exists():
+                    job = json.loads(path.read_text())
+                    if job["status"] == "completed":
+                        state = self.training.detail(job)
+                        self.check_child_receipt(name, state)
+                        return state
+            # An incomplete child is rerun from scratch with the frozen request.
             job = start()
             self.current["children"][name] = job["id"]
             self.save()
@@ -237,20 +314,43 @@ class LearningAgentJobs(AgentJobs):
             raise RuntimeError("Learning experiment cancelled")
         if state["id"] != job["id"] or state["status"] != "completed":
             raise RuntimeError(f"{name} failed; inspect the linked training job log")
+        self.check_child_receipt(name, state)
         return state
+
+    def check_child_receipt(self, name, state):
+        receipt = {key: state.get(key) for key in ("id", "config", "evaluation", "started_at", "finished_at")}
+        if state.get("evaluation"):
+            receipt["native_traces"] = verify_episode_traces(state["evaluation"], self.training.root / state["id"] / "evaluation")
+        previous = self.current["child_receipts"].get(name)
+        if previous and previous != receipt:
+            raise ValueError("Saved child evidence changed; start a new experiment")
+        self.current["child_receipts"][name] = receipt
+        self.save()
+
+    def receipt(self, name, trained):
+        checkpoint, _ = self.training.source(trained["id"])
+        receipt = checkpoint_receipt(checkpoint)
+        previous = self.current["checkpoint_receipts"].get(name)
+        if previous and previous != receipt:
+            raise ValueError("Frozen checkpoint changed; start a new experiment")
+        self.current["checkpoint_receipts"][name] = receipt
+        self.save()
 
     def run(self, folder, evidence):
         try:
+            self.update(stage="preflight")
+            validate(request_body(evidence["baseline_config"]))
             analyst = self.role("learning_analyst", evidence)
             design = self.role("learning_designer", {**evidence, "analyst": analyst})
             candidate = proposal(design, evidence)
             (folder / "proposal.json").write_text(json.dumps(design, ensure_ascii=False, indent=2))
             self.update(candidate_config=candidate)
             owner = self.current["id"]
-            training = {}
-            evaluations = {}
+            training, evaluations, trained_jobs = {}, {}, {}
             for name, config in (("baseline", evidence["baseline_config"]), ("candidate", candidate)):
                 trained = self.child(f"train_{name}", lambda config=config: self.training.start(request_body(config), owner=owner))
+                self.receipt(name, trained)
+                trained_jobs[name] = trained
                 training[name] = {"job_id": trained["id"], "seconds": trained["finished_at"] - trained["started_at"],
                                   "config": config, "learning_curve": numerical_curve(self.training.root / trained["id"], config["algorithm"])}
                 evaluated = self.child(f"evaluate_{name}", lambda trained=trained, config=config: self.training.evaluate(
@@ -260,8 +360,31 @@ class LearningAgentJobs(AgentJobs):
             comparison = {**measured_comparison(evaluations["baseline"], evaluations["candidate"]),
                           "training": training, "design": design, "training_seed": self.current["training_seed"]}
             (folder / "comparison.json").write_text(json.dumps(comparison, ensure_ascii=False, indent=2))
-            self.update(comparison=comparison)
-            self.role("learning_reviewer", comparison)
+            self.update(comparison=comparison, stage="development_verification")
+            development_ledger = evidence_ledger(evaluations["baseline"], evaluations["candidate"], comparison)
+            if not development_ledger["valid"]:
+                self.update(development_ledger=development_ledger)
+                raise ValueError("Development evidence contradicts simulator measurements")
+            # Both checkpoints and the proposal are frozen before exposing holdout results.
+            holdout_evaluations = {}
+            for name, config in (("baseline", evidence["baseline_config"]), ("candidate", candidate)):
+                self.receipt(name, trained_jobs[name])
+                evaluated = self.child(f"holdout_{name}", lambda name=name, config=config: self.training.evaluate(
+                    {"source_job": trained_jobs[name]["id"], "device": config["device"],
+                     "episodes": len(self.current["holdout_seeds"]), "step_limit": self.current["step_limit"]},
+                    seed_start=self.current["holdout_seeds"][0], owner=owner))
+                holdout_evaluations[name] = evaluated["evaluation"]
+            holdout = measured_comparison(holdout_evaluations["baseline"], holdout_evaluations["candidate"])
+            if set(holdout["seeds"]) & set(comparison["seeds"]) or self.current["training_seed"] in holdout["seeds"]:
+                raise ValueError("Final evaluation seeds overlap development or training")
+            self.update(stage="counterexample_verification")
+            ledger = evidence_ledger(holdout_evaluations["baseline"], holdout_evaluations["candidate"], holdout)
+            decision = final_decision(comparison, holdout, ledger)
+            bundle = {"development": development_ledger, "holdout": ledger, "decision": decision}
+            (folder / "verification.json").write_text(json.dumps(bundle, ensure_ascii=False, indent=2))
+            (folder / "holdout.json").write_text(json.dumps(holdout, ensure_ascii=False, indent=2))
+            self.update(holdout=holdout, verification=bundle, decision=decision)
+            self.role("learning_reviewer", {**comparison, "holdout": holdout, "verification": bundle, "decision": decision})
             self.update(status="completed", stage="completed", finished_at=time.time())
         except Exception as error:
             if isinstance(error, RejectedOutput):
