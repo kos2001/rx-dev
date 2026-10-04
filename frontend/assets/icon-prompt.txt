@@ -1,0 +1,11 @@
+Generated using the built-in image_gen tool.
+
+Use case: logo-brand. Asset type: single square app icon for rx-dev Robot Lab,
+a robotics simulation and agent experiment dashboard. Create an original
+polished minimalist robot-head emblem, friendly but professional, white robot
+face silhouette with two bold teal eyes, subtle antenna dot. Deep teal #157a69
+rounded-square tile on a transparent outer background. Existing dashboard
+palette is teal, soft sage and ivory. Centered, bold simple geometric silhouette,
+clear at 24px, generous inner padding, flat colors with very subtle premium soft
+depth, no fine detail. One icon only, not an icon sheet, no mockup, no lettering,
+no text, no watermark. Transparent pixels outside the rounded-square tile.

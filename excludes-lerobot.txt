@@ -1,0 +1,3 @@
+# gym-pusht requests GUI OpenCV; LeRobot's headless OpenCV supplies the same cv2 API.
+# Keep a single cv2 distribution to avoid duplicate macOS SDL classes.
+opencv-python
