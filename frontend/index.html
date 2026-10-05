@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="hermes.css">
   <link rel="stylesheet" href="platform.css">
+  <link rel="stylesheet" href="learning_cards.css">
 </head>
 <body>
   <aside class="sidebar">
@@ -99,51 +100,62 @@
     </div>
     <div id="trainingView" hidden>
       <nav class="workspace-steps" aria-label="학습 워크스페이스 단계"><button data-scroll="trainingConfiguration"><span>01 / TRAIN</span><strong>로봇 정책 학습</strong><small>모방학습 · 강화학습</small></button><button data-scroll="evaluationWorkspace"><span>02 / EVALUATE</span><strong>시뮬레이터 평가</strong><small>실행 영상 · 성공 지표</small></button><button data-scroll="learningWorkspace"><span>03 / SOLVE WITH AGENTS</span><strong>Agent 실험 & 검증</strong><small>분석 · 설계 · 최종 평가</small></button><button data-scroll="trainingArchive"><span>04 / CONTINUE</span><strong>기록에서 이어가기</strong><small>체크포인트 · 학습 재개</small></button></nav>
-      <section id="trainingConfiguration" class="panel training-panel" aria-label="모델 학습">
-        <p class="eyebrow">IMITATION + REINFORCEMENT LEARNING</p><h2>시연을 배우거나, 직접 경험합니다.</h2>
+      <div class="learning-overview" aria-label="워크스페이스 기록 요약">
+        <article><span class="overview-symbol">↗</span><div><small>학습 기록</small><strong id="trainingRecordCount">—</strong></div><p>새 학습 · 미세조정 · 재개</p></article>
+        <article><span class="overview-symbol">◎</span><div><small>평가 기록</small><strong id="evaluationRecordCount">—</strong></div><p>실제 시뮬레이터 실행 결과</p></article>
+        <article><span class="overview-symbol">✳</span><div><small>학습 Agent</small><strong id="learningOverviewStatus">대기</strong></div><p>분석 · 설계 · 독립 검토</p></article>
+      </div>
+      <section id="trainingConfiguration" class="panel training-panel workspace-card" aria-label="모델 학습">
+        <div class="workspace-card-heading"><div class="workspace-title"><span class="workspace-icon">↗</span><div><p class="eyebrow">01 / POLICY LEARNING</p><h2>로봇 정책 학습</h2></div></div><span class="workspace-tag">IMITATION + REINFORCEMENT</span></div>
         <p class="muted" id="trainingMethodInfo">학습 방식 목록을 불러오는 중…</p>
-        <form id="trainingForm" class="training-form">
-          <label>학습 환경<select id="trainingEnvironment"><option value="pusht">PushT · Pymunk</option><option value="aloha">ALOHA · Peg insertion · MuJoCo</option><option value="transfer">ALOHA · Cube transfer · MuJoCo</option></select></label>
-          <label>학습 방법<select id="trainingAlgorithm"><option value="act">ACT · 모방학습</option><option value="diffusion">Diffusion Policy · 모방학습</option><option value="ppo">PPO · 강화학습</option><option value="sac">SAC · 강화학습</option></select></label>
-          <label>실행 방식<select id="trainingMode"><option value="new">새 모델 학습</option><option value="finetune">저장 모델 미세조정</option><option value="resume">체크포인트에서 이어 학습</option></select></label>
-          <label id="trainingSourceLabel" hidden>이어 학습할 기록<select id="trainingSource"></select></label>
-          <label data-imitation>Hugging Face 데이터셋<input id="trainingDataset" value="lerobot/pusht" required maxlength="193" aria-label="학습 데이터셋"></label>
-          <label data-imitation>모델 크기<select id="trainingPreset"><option value="compact">로컬 실험용 · 작은 모델</option><option value="standard">공식 기본 크기</option></select></label>
-          <label>연산 장치<select id="trainingDevice"><option value="cpu">CPU</option><option value="mps">Apple Silicon · MPS</option><option value="cuda">NVIDIA · CUDA</option></select></label>
-          <label><span id="trainingStepLabel">학습 업데이트 스텝</span><input id="trainingSteps" type="number" min="1" max="100000" value="1000" required></label>
-          <label>배치 크기<input id="trainingBatch" type="number" min="1" max="128" value="8" required></label>
-          <label data-imitation>시연 에피소드 수<input id="trainingEpisodes" type="number" min="1" max="1000" value="10" required></label>
-          <label>학습 Seed<input id="trainingSeed" type="number" min="0" max="2147483647" value="1000" required></label>
-          <label data-rl hidden>학습률<input id="trainingLearningRate" type="number" min="0.000001" max="0.01" step="any" value="0.0003"></label>
-          <label data-rl hidden>미래 보상 할인율<input id="trainingGamma" type="number" min="0.8" max="0.9999" step="any" value="0.99"></label>
-          <label id="trainingRolloutLabel" hidden>PPO 경험 수집 간격<input id="trainingRollout" type="number" min="32" max="2048" value="128"></label>
-          <button id="trainingStart" class="primary" type="submit">ACT 학습 시작 →</button>
+        <form id="trainingForm" class="training-form card-form">
+          <fieldset class="config-card"><legend><span>01</span> 정책과 환경</legend><p>어디에서, 어떤 방법으로 배울까요?</p><div class="config-fields"><label>학습 환경<select id="trainingEnvironment"><option value="pusht">PushT · Pymunk</option><option value="aloha">ALOHA · Peg insertion · MuJoCo</option><option value="transfer">ALOHA · Cube transfer · MuJoCo</option></select></label>
+<label>학습 방법<select id="trainingAlgorithm"><option value="act">ACT · 모방학습</option><option value="diffusion">Diffusion Policy · 모방학습</option><option value="ppo">PPO · 강화학습</option><option value="sac">SAC · 강화학습</option></select></label>
+<label>실행 방식<select id="trainingMode"><option value="new">새 모델 학습</option><option value="finetune">저장 모델 미세조정</option><option value="resume">체크포인트에서 이어 학습</option></select></label>
+<label id="trainingSourceLabel" hidden>이어 학습할 기록<select id="trainingSource"></select></label></div></fieldset>
+          <fieldset class="config-card"><legend><span>02</span> 학습 신호와 모델</legend><p id="learningSignalInfo">시연 데이터로 행동을 학습합니다.</p><div class="config-fields"><label data-imitation>Hugging Face 데이터셋<input id="trainingDataset" value="lerobot/pusht" required maxlength="193" aria-label="학습 데이터셋"></label>
+<label data-imitation>모델 크기<select id="trainingPreset"><option value="compact">로컬 실험용 · 작은 모델</option><option value="standard">공식 기본 크기</option></select></label>
+<label data-imitation>시연 에피소드 수<input id="trainingEpisodes" type="number" min="1" max="1000" value="10" required></label>
+<label data-rl hidden>학습률<input id="trainingLearningRate" type="number" min="0.000001" max="0.01" step="any" value="0.0003"></label>
+<label data-rl hidden>미래 보상 할인율<input id="trainingGamma" type="number" min="0.8" max="0.9999" step="any" value="0.99"></label>
+<label id="trainingRolloutLabel" hidden>PPO 경험 수집 간격<input id="trainingRollout" type="number" min="32" max="2048" value="128"></label></div><div id="experienceSignal" class="experience-signal" hidden><span>환경 경험</span><b>관측 → 행동 → 보상</b><small>선택한 시뮬레이터에서 직접 수집합니다.</small></div></fieldset>
+          <fieldset class="config-card"><legend><span>03</span> 실행 예산</legend><p>학습 규모와 연산 조건을 설정합니다.</p><div class="config-fields"><label>연산 장치<select id="trainingDevice"><option value="cpu">CPU</option><option value="mps">Apple Silicon · MPS</option><option value="cuda">NVIDIA · CUDA</option></select></label>
+<label><span id="trainingStepLabel">학습 업데이트 스텝</span><input id="trainingSteps" type="number" min="1" max="100000" value="1000" required></label>
+<label>배치 크기<input id="trainingBatch" type="number" min="1" max="128" value="8" required></label>
+<label>학습 Seed<input id="trainingSeed" type="number" min="0" max="2147483647" value="1000" required></label></div></fieldset>
+          <div class="config-action-bar"><div><span class="config-summary-label">선택한 학습 설정</span><strong id="trainingConfigSummary">ACT · PushT · CPU</strong></div><button id="trainingStart" class="primary" type="submit">ACT 학습 시작 →</button></div>
         </form>
-        <p class="agent-consent" id="trainingNotes"></p>
-        <div id="trainingStatus" aria-live="polite">학습 기록을 불러오는 중…</div>
-        <button id="trainingStop" class="agent-stop" hidden>학습 중지</button>
-        <details><summary>학습 로그 · loss / 스텝</summary><pre id="trainingLogs"></pre></details>
+        <details class="workspace-notes"><summary>학습 방식과 저장 안내</summary><p class="agent-consent" id="trainingNotes"></p></details>
+        <div class="execution-card"><div><span class="execution-dot"></span><span class="eyebrow">TRAINING STATUS</span><div id="trainingStatus" aria-live="polite">학습 기록을 불러오는 중…</div></div><button id="trainingStop" class="agent-stop" hidden>학습 중지</button></div>
+        <details class="workspace-log"><summary>학습 로그 · loss / 스텝</summary><pre id="trainingLogs"></pre></details>
       </section>
-      <section id="evaluationWorkspace" class="panel training-panel"><p class="eyebrow">SIMULATION & EVIDENCE</p><h2>정책 평가</h2><p class="muted">학습 기록의 평가 버튼으로 해당 PushT 또는 MuJoCo ALOHA 환경에서 정책을 실행하고 영상을 저장합니다. 같은 입력·Seed·스텝 제한의 결과끼리 비교하세요. 상태 입력 강화학습은 시뮬레이터의 물체 상태를 직접 제공받습니다.</p><div class="training-form"><label>평가 에피소드<input id="policyEvalEpisodes" type="number" min="1" max="20" value="5"></label><label>에피소드당 최대 스텝<input id="policyEvalSteps" type="number" min="10" max="300" value="300"></label></div><div id="policyEvaluations"></div></section>
-      <section id="learningWorkspace" class="panel training-panel" aria-label="Agent 학습 개선 실험">
-        <p class="eyebrow">AGENTS + LEARNING SKILLS</p><h2>학습 결과를 다음 실험으로 연결합니다.</h2>
-        <p class="muted">분석 → 설정 하나 제안 → 기준·후보 학습 → 개발 평가 → 별도 최종 평가 → 반례 검증 → 독립 검토. 같은 환경과 방법에서 설정 하나를 바꾸고, 새로운 동일 Seed로 두 정책을 비교합니다. PushT와 MuJoCo ALOHA를 지원합니다.</p>
-        <form id="learningAgentForm" class="training-form">
-          <label>분석할 완료된 학습<select id="learningAgentSource" required></select></label>
-          <label>정책당 학습 스텝 상한<input id="learningAgentSteps" type="number" min="1" max="512" value="128" required></label>
-          <label>정책당 개발 평가 에피소드<input id="learningAgentEpisodes" type="number" min="1" max="5" value="3" required></label>
-          <label>정책당 최종 평가 에피소드<input id="learningAgentHoldout" type="number" min="1" max="20" value="10" required></label>
-          <label>평가당 최대 스텝<input id="learningAgentLimit" type="number" min="10" max="400" value="400" required></label>
-          <button id="learningAgentStart" class="primary">Agent 학습 실험 시작 →</button>
+      <section id="evaluationWorkspace" class="panel training-panel workspace-card"><div class="workspace-card-heading"><div class="workspace-title"><span class="workspace-icon">◎</span><div><p class="eyebrow">02 / SIMULATION & EVIDENCE</p><h2>시뮬레이터 평가</h2></div></div><span class="workspace-tag">MEASURED RESULTS</span></div>
+        <p class="muted">같은 입력·Seed·스텝 제한의 결과끼리 비교하세요. 학습 기록 카드의 평가 버튼으로 실행하고 영상을 저장합니다.</p>
+        <div class="evaluation-settings"><div class="evaluation-settings-title"><strong>평가 조건</strong><span>선택한 정책의 환경에서 실행합니다.</span></div><label>평가 에피소드<input id="policyEvalEpisodes" type="number" min="1" max="20" value="5"></label>
+<label>에피소드당 최대 스텝<input id="policyEvalSteps" type="number" min="10" max="300" value="300"></label></div>
+        <div id="policyEvaluations"></div>
+      </section>
+      <section id="learningWorkspace" class="panel training-panel workspace-card" aria-label="Agent 학습 개선 실험">
+        <div class="workspace-card-heading"><div class="workspace-title"><span class="workspace-icon">✳</span><div><p class="eyebrow">03 / SOLVE WITH AGENTS</p><h2>Agent 실험과 검증</h2></div></div><span class="workspace-tag">ANALYZE → DESIGN → REVIEW</span></div>
+        <p class="muted">완료된 학습을 근거로 기준·후보를 새로 학습하는 파일럿 비교입니다. 설정 하나의 변경을 실제 학습·평가로 검증합니다.</p>
+        <form id="learningAgentForm" class="training-form card-form agent-config-form">
+          <fieldset class="config-card"><legend><span>01</span> 분석할 학습</legend><p>완료된 정책을 실험의 출발점으로.</p><div class="config-fields"><label>분석할 완료된 학습<select id="learningAgentSource" required></select></label>
+<label>정책당 학습 스텝 상한<input id="learningAgentSteps" type="number" min="1" max="512" value="128" required></label></div></fieldset>
+          <fieldset class="config-card"><legend><span>02</span> 비교와 최종 검증</legend><p>개발·최종 평가 Seed를 분리합니다.</p><div class="config-fields agent-budget-fields"><label>정책당 개발 평가 에피소드<input id="learningAgentEpisodes" type="number" min="1" max="5" value="3" required></label>
+<label>정책당 최종 평가 에피소드<input id="learningAgentHoldout" type="number" min="1" max="20" value="10" required></label>
+<label>평가당 최대 스텝<input id="learningAgentLimit" type="number" min="10" max="400" value="400" required></label></div></fieldset>
+          <div class="config-action-bar"><p id="learningAgentHealth" class="muted"></p><button id="learningAgentStart" class="primary">Agent 학습 실험 시작 →</button></div>
         </form>
-        <p class="agent-consent">원본은 분석 근거로 사용합니다. 기준과 후보 모두 작은 모델로 새로 학습하는 파일럿 실험입니다. 연산 장치는 위 학습 설정을 사용합니다. 학습 설정·숫자 지표는 연결된 Hermes 모델 제공자로 전달되며, 영상은 로컬에 저장됩니다. 결과는 자동 채택하지 않습니다.</p>
-        <p id="learningAgentHealth" class="muted"></p><p id="learningAgentStatus" aria-live="polite">학습 Agent 대기</p>
-        <button id="learningAgentStop" class="agent-stop" hidden>Agent 학습 실험 중지</button>
-        <button id="learningAgentResume" class="primary" hidden>저장된 실험 재개 →</button>
-        <p class="muted">최종 평가에서는 후보를 고정하고 개발 평가와 다른 Seed를 사용합니다. 완료된 단계는 재사용하고, 중단된 학습·평가 단계는 같은 설정으로 처음부터 다시 실행합니다.</p>
+        <p class="provider-note">실험 설정·숫자 지표는 연결된 Hermes 모델 제공자로 전달됩니다. 영상은 로컬에 보존합니다.</p>
+        <details class="workspace-notes"><summary>Agent 실험 범위와 데이터 전달</summary><p class="agent-consent">원본은 분석 근거로 사용합니다. 기준과 후보 모두 작은 모델로 새로 학습하는 파일럿 실험입니다. 연산 장치는 위 학습 설정을 사용합니다. 학습 설정·숫자 지표는 연결된 Hermes 모델 제공자로 전달되며, 영상은 로컬에 저장됩니다. 결과는 자동 채택하지 않습니다.</p></details>
+        <div class="execution-card"><div><span class="execution-dot"></span><span class="eyebrow">EXPERIMENT STATUS</span><p id="learningAgentStatus" aria-live="polite">학습 Agent 대기</p></div><div class="execution-actions"><button id="learningAgentStop" class="agent-stop" hidden>Agent 학습 실험 중지</button><button id="learningAgentResume" class="primary" hidden>저장된 실험 재개 →</button></div></div>
         <div id="learningAgentResults"></div>
+        <details class="workspace-notes"><summary>최종 평가와 중단 후 재개 방식</summary><p class="muted">최종 평가에서는 후보를 고정하고 개발 평가와 다른 Seed를 사용합니다. 완료된 단계는 재사용하고, 중단된 학습·평가 단계는 같은 설정으로 처음부터 다시 실행합니다.</p></details>
       </section>
-      <section id="trainingArchive" class="panel training-panel"><p class="eyebrow">EXPERIMENT HISTORY</p><h2>학습 기록과 체크포인트</h2><div id="trainingHistory"></div></section>
+      <section id="trainingArchive" class="panel training-panel workspace-card"><div class="workspace-card-heading"><div class="workspace-title"><span class="workspace-icon">▦</span><div><p class="eyebrow">04 / EXPERIMENT HISTORY</p><h2>학습 기록과 체크포인트</h2></div></div><span id="trainingHistoryCount" class="workspace-tag">저장된 기록</span></div>
+        <div class="history-toolbar"><label>기록 종류<select id="trainingHistoryFilter"><option value="all">전체 기록</option><option value="training">모델 학습</option><option value="evaluation">정책 평가</option></select></label><label>기록 찾기<input id="trainingHistorySearch" type="search" placeholder="방법 · 환경 · 실행 ID" aria-label="학습 기록 검색"></label></div>
+        <div id="trainingHistory" class="record-card-grid"></div><button id="trainingHistoryMore" class="history-more" hidden>기록 더 보기 ↓</button>
+      </section>
     </div>
     <div id="examplesView" hidden><div class="section-heading"><div><h2>다음 실험을 찾아보세요.</h2><p>공식 문서에서 확인한 환경과 예제 · 확인일 2026.10.04</p></div><span class="subtle-tag">7 EXAMPLES</span></div><div id="examples" class="examples-grid"></div><div class="catalog-note"><strong>새로운 환경을 연결하려면</strong><p>Meta-World, LIBERO, LeIsaac은 공식 연동 예제이며, 현재 대시보드에서 실행 검증한 환경은 아닙니다. 각 카드의 공식 가이드에서 요구 환경을 확인할 수 있습니다.</p></div></div>
     <footer><span>robotlab <span> / </span> Robot learning & Agent solutions</span><span>물리 계산은 로컬 · Agent 분석은 Hermes 모델 연결</span></footer>
