@@ -46,7 +46,7 @@ const fs=require('node:fs/promises');
       assert.match(await card.locator('.environment-guide').textContent(),/실행 환경 준비[\s\S]*서비스 연결 작업/);
     }
     const libero=page.locator('.example-card').filter({has:page.getByRole('heading',{name:'LIBERO',exact:true})});
-    assert.match(await libero.textContent(),/Mac 구동 확인/);
+    assert.match(await libero.textContent(),/Mac ACT 과제 성공 확인/);
     const video=libero.locator('video');await video.evaluate(async v=>{v.muted=true;await v.play();});
     await page.waitForFunction(()=>document.querySelector('.portability-video video')?.currentTime>0.1);
     await video.evaluate(v=>v.pause());

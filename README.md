@@ -45,6 +45,33 @@ Agent 영역은 분석·설계·검토 역할 카드와 기준·후보 비교 �
 로그·영상을 확인합니다. `tests/browser_learning_cards.cjs`는 실제 기록을 읽어 표시값과
 재생 유지·검색·필터·모바일 배치를 검증하고, 폼 제출은 요청을 가로채 실행 값만 검사합니다.
 
+## macOS LIBERO 학습 정책의 실제 과제 성공
+
+공개 ACT `AmberHyunKIM/act_libero_goal_task0`의 고정 버전
+`4db937e8de09123dd9b5707ab7704710000b5f25`를 Apple M4 Mac에서 실행해
+**가운데 서랍 열기 3/3 성공**을 확인했습니다. 세 고정 초기 조건 0·1·2와
+Seed 1000·1001·1002를 사용했고, 최초 성공은 118·113·125스텝입니다.
+모두 300스텝 종료 시점에도 LIBERO의 원래 성공 판정이 유지됐습니다.
+이 모델은 공개된 100,000스텝 학습 체크포인트이며 이 Mac에서 추가 학습하지 않았습니다.
+한 과제의 사례 확인으로, 전체 LIBERO 성능이나 전이·지속 학습 검증을 뜻하지 않습니다.
+
+```sh
+sh run_libero_success.sh --output outputs/libero-evaluations/drawer-new
+```
+
+첫 실행은 모델 약 207MB와 시뮬레이터 자산 약 422MB를 다운로드합니다.
+`requirements/libero-act-macos.txt`의 실험용 별도 가상환경을 사용하며,
+학습 모델 가중치·optimizer를 변경하지 않습니다. 모델 작성자의 평가 조건대로
+`n_action_steps=10`을 사용하고 CPU에서 공식 LIBERO 관측 전처리와 모델 정규화 통계를 적용합니다.
+
+플랫폼 홈의 **가운데 서랍을 열었어요**에서 전체 영상 3개와 결과를 확인할 수 있습니다.
+환경 라이브러리의 LIBERO 카드에서도 이 영역으로 이동합니다.
+`frontend/assets/success/libero-drawer/`에는 각각 301프레임·15.05초의 실제 영상,
+원본 행동·성공 판정 trace, 모델·영상·trace의 해시와 실행 버전이 포함됩니다.
+결과는 `outputs/libero-evaluations/act-drawer-003/`에서 생성했으며 가중치는 저장소에서 제외됩니다.
+`tests/browser_libero_success.cjs`는 백엔드 없이도 실제 영상 재생, 전체 결과·원본 기록 링크와
+모바일 배치를 검증합니다. 서비스에서 신규 LIBERO 학습·평가를 실행하는 버튼은 아직 없습니다.
+
 ## macOS LIBERO 구동 검증
 
 Apple M4 · macOS 26.7에서 LIBERO-Spatial 과제 0의 초기화, 60스텝 실행과
