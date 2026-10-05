@@ -45,6 +45,28 @@ Agent 영역은 분석·설계·검토 역할 카드와 기준·후보 비교 �
 로그·영상을 확인합니다. `tests/browser_learning_cards.cjs`는 실제 기록을 읽어 표시값과
 재생 유지·검색·필터·모바일 배치를 검증하고, 폼 제출은 요청을 가로채 실행 값만 검사합니다.
 
+## macOS LIBERO 구동 검증
+
+Apple M4 · macOS 26.7에서 LIBERO-Spatial 과제 0의 초기화, 60스텝 실행과
+카메라 영상 저장을 확인했습니다. 학습된 정책을 사용하지 않았으며 과제 성공은 없습니다.
+공식 LeRobot LIBERO extra는 여전히 Linux 전용입니다. 실험용 별도 가상환경에서
+Linux EGL 장치 탐색 패키지 `egl-probe`·`hf-egl-probe`를 제외하고 robosuite의
+macOS 렌더링 경로를 사용했습니다. `requirements/libero-macos.txt`는 실제 구동된
+패키지를 고정하며 `--no-deps` 설치는 이 검증 전용입니다. 메인 학습 환경에 적용하지 않습니다.
+
+```sh
+sh run_libero_probe.sh --steps 60
+```
+
+최초 실행은 고정된 `lerobot/libero-assets` 자산 약 422MB를 다운로드합니다.
+`outputs/platform-probes/libero-macos/`에 영상·원본 trace·버전·결과를 저장합니다.
+서비스 환경 카드에서도 `frontend/assets/probes/libero/`의 실제 구동 영상을 확인할 수 있습니다.
+이 검증은 전체 과제 지원이나 서비스의 LIBERO 학습·평가 연결을 뜻하지 않습니다.
+
+Isaac Sim 6.1.0.0 설치 해석도 확인했습니다. macOS ARM64 배포 파일이 없어
+설치할 수 없으며, LeIsaac의 실행에는 지원되는 GPU PC·서버 연결이 필요합니다.
+GPU 서버 주소·접속 설정이 제공되지 않아 원격 실행은 수행하지 않았습니다.
+
 ## 여러 방식의 모델 학습과 평가
 
 ### 실제로 성공하는 사전학습 정책 실행
