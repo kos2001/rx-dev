@@ -1,5 +1,6 @@
 import {connectAgents} from './hermes.js';
 import {connectTraining} from './training.js';
+import {connectPlatform} from './platform.js';
 import {loadShowcase} from './showcase.js';
 loadShowcase();
 const API = new URLSearchParams(location.search).get('api') || 'http://127.0.0.1:8787';
@@ -26,16 +27,17 @@ function view(name) {
   $('dashboardView').hidden = name !== 'dashboard'; $('examplesView').hidden = name !== 'examples';
   $('trainingView').hidden = name !== 'training'; $('simulationLaunch').hidden = name === 'training';
   document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === name));
-  $('breadcrumb').textContent = name === 'dashboard' ? '실험 대시보드' : '예제 라이브러리';
-  $('pageTitle').textContent = name === 'dashboard' ? '움직임을 보고, 차이를 발견하세요.' : '더 넓은 로봇의 세계로.';
-  $('pageSubtitle').textContent = name === 'dashboard' ? '같은 초기 조건에서 두 제어기의 행동과 결과를 비교합니다.' : '지금 실행할 수 있는 환경부터, 다음에 연결할 벤치마크까지.';
+  $('breadcrumb').textContent = name === 'dashboard' ? '플랫폼 홈' : '환경 라이브러리';
+  $('pageTitle').textContent = name === 'dashboard' ? '로봇 학습과 Agent, 하나의 플랫폼.' : '다음 해법을 위한 실행 환경.';
+  $('pageSubtitle').textContent = name === 'dashboard' ? '정책을 학습하고, 시뮬레이션으로 검증하고, Agent와 다음 해법을 찾으세요.' : '지금 실행할 수 있는 환경부터, 다음에 연결할 벤치마크까지.';
   if (name === 'training') {
-    $('breadcrumb').textContent = '모델 학습'; $('pageTitle').textContent = '시연을 배우는 로봇.';
-    $('pageSubtitle').textContent = '모방학습과 강화학습으로 정책을 만들고, 시뮬레이터에서 평가합니다.';
+    $('breadcrumb').textContent = '학습 & Agents'; $('pageTitle').textContent = '학습에서 검증까지, 해법을 만드는 곳.';
+    $('pageSubtitle').textContent = '로봇 정책 학습, Agent 실험 설계, 시뮬레이터 평가를 하나의 흐름으로 연결합니다.';
   }
   playing = false; updatePlay();
 }
 document.querySelectorAll('[data-view]').forEach(button => button.onclick = () => view(button.dataset.view));
+connectPlatform({view});
 
 async function loadReports(preferred) {
   const items = await api('/api/reports');
@@ -172,7 +174,7 @@ async function loadExamples() {
   const data = await api('/api/examples');
   const symbols = {push:'⊥',arms:'⋈',cube:'◇',world:'◎',layers:'▱',robot:'⌘',hub:'⌁'};
   $('examples').innerHTML = data.examples.map(example => `<article class="example-card"><div class="example-art"><span class="example-symbol">${symbols[example.icon]}</span><span class="badge ${example.available?'success':''}">${esc(example.status)}</span></div><p class="eyebrow">${esc(example.category)}</p><h3>${esc(example.name)}</h3><p>${esc(example.description)}</p><span class="example-requirement">${esc(example.requirements)}</span><div class="example-actions"><a href="${esc(example.source)}" target="_blank" rel="noreferrer">공식 가이드 ↗</a>${example.available?`<button data-example="${esc(example.id)}">실험 선택 →</button>`:'<span class="muted">별도 환경 연동 필요</span>'}</div></article>`).join('');
-  $('examples').querySelectorAll('[data-example]').forEach(button=>button.onclick=()=>{$('experiment').value=button.dataset.example;configureExperiment();view('dashboard');window.scrollTo({top:0,behavior:'smooth'});});
+  $('examples').querySelectorAll('[data-example]').forEach(button=>button.onclick=()=>{$('experiment').value=button.dataset.example;configureExperiment();view('dashboard');$('simulationLaunch').scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});$('experiment').focus({preventScroll:true});});
 }
 function configureExperiment() {const agent=$('experiment').value==='pusht-agent';$('mode').disabled=!agent;$('steps').value=agent?300:250;}
 $('experiment').onchange = configureExperiment;
