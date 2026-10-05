@@ -19,7 +19,7 @@ export function renderMethodLesson(method,blocked=false){
 
 // Prerequisites and unfinished service adapters are distinct from executable examples.
 export const environmentGuides={
-  libero:{label:'학습·평가 실행기 연결 필요',status:'Mac ACT 과제 성공 확인',demo:'assets/probes/libero/rollout.mp4',setup:'공식 LeRobot 연동은 Linux 전용입니다. 별도 가상환경에서 Linux EGL 탐색 의존성을 제외한 hf-libero 0.1.4는 Apple M4 Mac에서 과제 초기화·60스텝·카메라 영상 저장을 확인했습니다.',connection:'공개 ACT 정책으로 가운데 서랍 열기를 세 초기 조건에서 성공했고, 종료 시점에도 성공 상태를 유지했습니다. 다른 과제와 서비스 내 신규 학습은 아직 연결하지 않았습니다. 과제 선택, 카메라·상태 입력, 7차원 행동, 성공 판정을 서비스의 학습·평가 실행기에 연결해야 합니다.'},
+  libero:{label:'학습·평가 실행기 연결 필요',status:'Mac ACT 과제 성공 확인',demo:'assets/probes/libero/rollout.mp4',setup:'공식 LeRobot 연동은 Linux 전용입니다. 별도 가상환경에서 Linux EGL 탐색 의존성을 제외한 hf-libero 0.1.4는 Apple M4 Mac에서 과제 초기화·60스텝·카메라 영상 저장을 확인했습니다.',connection:'공개 ACT 정책으로 가운데 서랍 열기와 수프 통조림 바구니 넣기를 각각 세 초기 조건에서 성공했고, 종료 시점에도 성공 상태를 유지했습니다. 다른 과제와 서비스 내 신규 학습은 아직 연결하지 않았습니다. 과제 선택, 카메라·상태 입력, 7차원 행동, 성공 판정을 서비스의 학습·평가 실행기에 연결해야 합니다.'},
   leisaac:{label:'GPU 실행기 연결 필요',status:'macOS 설치 불가 · 원격 GPU 필요',setup:'NVIDIA GPU 머신 또는 GPU 클라우드에 Isaac Sim·Isaac Lab·LeIsaac와 호환 CUDA 환경을 준비합니다.',connection:'시뮬레이터 작업을 실행할 서버와 과제·관측·행동 설정을 연결하고, 실행 지표·영상을 이 화면으로 가져와야 합니다.'},
   envhub:{label:'Hub 환경 실행기 구현 필요',setup:'CartPole Hub 환경 코드를 검토하고 버전을 고정한 뒤 필요한 Gymnasium 의존성을 준비합니다.',connection:'Hub 환경 로더, 관측·행동 형식, 학습·평가 실행과 영상 저장을 연결해야 합니다. CartPole의 이산 행동을 현재 PPO·SAC 실행기가 그대로 지원하는 것은 아닙니다.'},
   metaworld:{label:'과제 실행기 연결 필요',setup:'LeRobot의 Meta-World 추가 패키지와 MuJoCo 환경을 준비합니다.',connection:'과제 선택, 정책 입출력과 성공 판정, 학습·평가 및 영상 저장을 서비스에 연결해야 합니다.'}

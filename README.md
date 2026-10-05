@@ -72,6 +72,28 @@ sh run_libero_success.sh --output outputs/libero-evaluations/drawer-new
 `tests/browser_libero_success.cjs`는 백엔드 없이도 실제 영상 재생, 전체 결과·원본 기록 링크와
 모바일 배치를 검증합니다. 서비스에서 신규 LIBERO 학습·평가를 실행하는 버튼은 아직 없습니다.
 
+### 수프 통조림을 바구니에 넣기
+
+공개 ACT `rishi264/act-libero-alphabet-soup`의 고정 버전
+`4008ed10261d06404d04c04490dc572da2430b7a`를 같은 Mac에서 실행했습니다.
+LIBERO-Object 과제 0에서 초기 상태 0·1·2, Seed 1000·1001·1002 모두 성공했습니다.
+최초 성공은 144·145·147스텝이며, 모두 400스텝 종료까지 성공 상태를 유지했습니다.
+공개 모델은 50개 시범으로 20,000업데이트 학습됐으며, 이 Mac에서는 추가 학습 없이 평가했습니다.
+모델 작성자의 입력 조건에 맞춰 128×128 카메라 영상을 뒤집지 않고 입력하고,
+`n_action_steps=1`, `temporal_ensemble_coeff=0.01`을 적용합니다. 가중치는 엄격하게 로드합니다.
+
+```sh
+sh run_libero_success.sh --policy basket --output outputs/libero-evaluations/basket-new
+```
+
+플랫폼 홈에서 **서랍 조작 / 물체 옮기기**를 선택해 두 과제의 영상을 볼 수 있습니다.
+`/?libero=basket#liberoSuccessShowcase`는 물체 옮기기를 바로 선택합니다.
+`frontend/assets/success/libero-basket/`에는 실제 영상 3개(각 401프레임·20.05초),
+최종 화면, 전체 행동·판정 기록과 모델·자산·영상 해시가 포함됩니다.
+원본 실행 결과는 `outputs/libero-evaluations/act-basket-001/`에 있습니다.
+이 역시 한 과제의 세 초기 조건 결과이며, 다른 물체나 전체 벤치마크로 일반화하지 않습니다.
+`tests/browser_libero_basket.cjs`는 영상 재생, 과제 전환, 원본 판정과 모바일 배치를 확인합니다.
+
 ## macOS LIBERO 구동 검증
 
 Apple M4 · macOS 26.7에서 LIBERO-Spatial 과제 0의 초기화, 60스텝 실행과

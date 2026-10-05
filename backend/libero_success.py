@@ -1,4 +1,4 @@
-"""Evaluate a pinned public ACT policy on its LIBERO drawer task in native MuJoCo."""
+"""Evaluate a pinned public ACT policy on its matching LIBERO manipulation task in native MuJoCo."""
 import argparse
 import hashlib
 import importlib.metadata
@@ -12,9 +12,7 @@ import time
 import traceback
 
 from .libero_probe import ASSET_REVISION
-
-MODEL = 'AmberHyunKIM/act_libero_goal_task0'
-MODEL_REVISION = '4db937e8de09123dd9b5707ab7704710000b5f25'
+from .libero_policies import POLICIES, policy_observation
 
 
 def digest(path):
@@ -23,13 +21,17 @@ def digest(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--model', default='outputs/pretrained/act-libero-goal-task0')
+    parser.add_argument('--policy', choices=list(POLICIES), default='drawer')
+    parser.add_argument('--model', help='Local cache directory for the pinned selected policy')
     parser.add_argument('--output', required=True)
     parser.add_argument('--episodes', type=int, default=3)
-    parser.add_argument('--steps', type=int, default=300)
+    parser.add_argument('--steps', type=int)
     parser.add_argument('--seed', type=int, default=1000)
     parser.add_argument('--device', choices=['cpu', 'mps'], default='cpu')
     args = parser.parse_args()
+    spec = POLICIES[args.policy]
+    args.steps = spec['default_steps'] if args.steps is None else args.steps
+    args.model = args.model or 'outputs/pretrained/' + spec['folder']
     if not 1 <= args.episodes <= 10 or not 50 <= args.steps <= 400:
         parser.error('episodes must be 1..10 and steps 50..400')
     folder = Path(args.output).resolve()
@@ -41,12 +43,14 @@ def main():
     os.environ['NUMBA_CACHE_DIR'] = str(folder / 'numba')
     os.environ['MUJOCO_GL'] = 'cgl' if sys.platform == 'darwin' else 'egl'
     report = {'status': 'started', 'learned_policy': True, 'local_training': False,
-              'model': MODEL, 'model_revision': MODEL_REVISION, 'asset_revision': ASSET_REVISION,
+              'model': spec['model'], 'model_revision': spec['revision'], 'asset_revision': ASSET_REVISION,
               'host': platform.platform(), 'architecture': platform.machine(), 'config': vars(args),
-              'suite': 'libero_goal', 'task_id': 0, 'runs': [],
+              'suite': spec['suite'], 'task_id': spec['task_id'], 'runs': [],
               'success_rule': 'native LIBERO env.check_success(); first and final success separately',
               'continue_after_first_success': True, 'control_freq': 20, 'video_fps': 20,
-              'runtime_policy_overrides': {'device': args.device, 'n_action_steps': 10, 'backbone_initialization_weights': None},
+              'runtime_policy_overrides': {'device': args.device, 'n_action_steps': spec['n_action_steps'], 'temporal_ensemble_coeff': spec['temporal_ensemble_coeff'], 'backbone_initialization_weights': None},
+              'image_input': {'width': spec['image_size'], 'height': spec['image_size'], 'raw_camera_images': spec['raw_camera_images']},
+              'strict_weight_loading': True,
               'packages': {name: importlib.metadata.version(name) for name in ['lerobot', 'hf-libero', 'robosuite', 'mujoco', 'numpy', 'torch']}}
     start = time.monotonic()
     env = None
@@ -63,7 +67,7 @@ def main():
         from huggingface_hub import snapshot_download
         torch.set_num_threads(4)
         model = Path(args.model).resolve()
-        snapshot_download(MODEL, revision=MODEL_REVISION, local_dir=str(model))
+        snapshot_download(spec['model'], revision=spec['revision'], local_dir=str(model))
         report['model_files'] = {p.name: digest(p) for p in model.iterdir() if p.is_file()}
         root = Path(next(iter(importlib.util.find_spec('libero').submodule_search_locations))) / 'libero'
         assets = Path('outputs/platform-probes/libero-assets').resolve()
@@ -77,28 +81,29 @@ def main():
         libero_module._assets_path_cache = str(assets)
         from libero.libero import benchmark
         from lerobot.envs.libero import LiberoEnv
-        from lerobot.envs.utils import preprocess_observation
         from lerobot.processor import LiberoProcessorStep, PolicyProcessorPipeline
         from lerobot.policies.act.configuration_act import ACTConfig
         from lerobot.policies.act.modeling_act import ACTPolicy
         from lerobot.policies.factory import make_pre_post_processors
         cfg = ACTConfig.from_pretrained(model)
         cfg.device = args.device
-        cfg.n_action_steps = 10  # Matches the model author's published evaluation protocol.
+        cfg.n_action_steps = spec['n_action_steps']
+        cfg.temporal_ensemble_coeff = spec['temporal_ensemble_coeff']
         cfg.pretrained_backbone_weights = None  # Every learned backbone weight is loaded from the checkpoint.
         print('Loading pinned ACT policy', flush=True)
         policy = ACTPolicy.from_pretrained(model, config=cfg, strict=True).to(args.device).eval()
         pre, post = make_pre_post_processors(cfg, pretrained_path=model,
                     preprocessor_overrides={'device_processor': {'device': args.device}})
         env_pre = PolicyProcessorPipeline(steps=[LiberoProcessorStep()])
-        suite = benchmark.get_benchmark_dict()['libero_goal']()
-        task = suite.get_task(0)
-        if task.name != 'open_the_middle_drawer_of_the_cabinet':
-            raise ValueError('Pinned single-task checkpoint requires the middle drawer task')
+        suite = benchmark.get_benchmark_dict()[spec['suite']]()
+        task = suite.get_task(spec['task_id'])
+        if task.name != spec['task_name']:
+            raise ValueError('Task does not match the pinned single-task checkpoint')
         report['task_name'], report['task_language'] = task.name, task.language
         report['bddl_sha256'] = digest(root / 'bddl_files' / task.problem_folder / task.bddl_file)
         report['init_states_sha256'] = digest(root / 'init_files' / task.problem_folder / task.init_states_file)
-        env = LiberoEnv(suite, 0, 'libero_goal', episode_length=args.steps,
+        env = LiberoEnv(suite, spec['task_id'], spec['suite'], episode_length=args.steps,
+                        observation_width=spec['image_size'], observation_height=spec['image_size'],
                         obs_type='pixels_agent_pos', visualization_width=640, visualization_height=480,
                         init_states=True, num_steps_wait=10, control_mode='relative')
         report['stage'] = 'rollout'
@@ -112,7 +117,7 @@ def main():
             trace = []
             first_success = None
             video = folder / f'episode-{index}-seed-{seed}.mp4'
-            # Use the exact training-oriented camera view, rendered at greater resolution.
+            # Render the agent camera for display; policy image orientation is handled separately.
             def render():
                 return np.ascontiguousarray(native.env.sim.render(width=640, height=480, camera_name='agentview')[::-1, ::-1])
             frame = render()
@@ -120,16 +125,9 @@ def main():
             with imageio.get_writer(video, fps=20, codec='libx264') as writer:
                 writer.append_data(frame)
                 for step in range(args.steps):
-                    batch = preprocess_observation(observation)
-                    # Official evaluator uses vector environments. This native single
-                    # environment needs the same leading batch dimension for robot state.
-                    def batch_state(value):
-                        if isinstance(value, dict):
-                            return {key: batch_state(item) for key, item in value.items()}
-                        return value.unsqueeze(0) if isinstance(value, torch.Tensor) else value
-                    batch['observation.robot_state'] = batch_state(batch['observation.robot_state'])
+                    batch = policy_observation(observation, env_pre, raw_camera_images=spec['raw_camera_images'])
                     batch['task'] = [task.language]
-                    batch = pre(env_pre(batch))
+                    batch = pre(batch)
                     with torch.inference_mode():
                         action = post(policy.select_action(batch))[0].cpu().numpy()
                     if action.shape != (7,) or not np.isfinite(action).all():

@@ -67,7 +67,8 @@
         <div id="successGallery" class="success-gallery" aria-live="polite">성공 영상을 불러오는 중…</div>
       </section>
       <section id="liberoSuccessShowcase" class="panel libero-showcase" aria-label="LIBERO 실제 성공 영상">
-        <div class="panel-heading"><div><p class="eyebrow">LIBERO · REAL POLICY EXECUTION</p><h2>가운데 서랍을 열었어요.</h2><p class="muted">Apple M4 Mac에서 학습된 ACT 정책이 실제 MuJoCo 서랍을 여는 전체 기록입니다.</p></div><span class="badge success">원래 과제 판정으로 확인</span></div>
+        <div class="panel-heading"><div><p class="eyebrow">LIBERO · REAL POLICY EXECUTION</p><h2 id="liberoTaskTitle">가운데 서랍을 열었어요.</h2><p class="muted" id="liberoTaskDescription">Apple M4 Mac에서 학습된 ACT 정책이 실제 MuJoCo 서랍을 여는 전체 기록입니다.</p></div><span class="badge success">원래 과제 판정으로 확인</span></div>
+        <div class="libero-task-selector" role="group" aria-label="성공 기록을 볼 LIBERO 과제 선택"><button type="button" data-libero-case="drawer" aria-pressed="true" disabled><span>01 · 서랍 조작</span><strong>가운데 서랍 열기</strong></button><button type="button" data-libero-case="basket" aria-pressed="false" disabled><span>02 · 물체 옮기기</span><strong>수프 통조림 바구니에 넣기</strong></button></div>
         <div id="liberoSuccessGallery" aria-live="polite">LIBERO 성공 영상을 불러오는 중…</div>
       </section>
       <div class="section-heading"><div><h2>실험 결과 <span id="resultKind" class="subtle-tag">평가 기록</span></h2><p id="resultDescription">저장된 실험을 불러오고 있습니다.</p></div><label class="report-picker">실험 기록<select id="reportSelect" aria-label="실험 기록 선택"></select></label></div>

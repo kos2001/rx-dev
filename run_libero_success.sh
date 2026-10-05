@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run the pinned, already-trained drawer policy locally; do not train or call providers.
+# Run the pinned, already-trained task policies locally; do not train or call providers.
 set -eu
 cd "$(dirname "$0")"
 if [ "$(uname -s)" != Darwin ]; then
