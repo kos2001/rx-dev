@@ -1,3 +1,4 @@
+import {renderMethodLesson} from './education.js';
 import {statusBadge,successCard} from './learning_cards.js';
 import {connectLearningAgents} from './learning_agents.js';
 import {environments,environmentOf,canEvaluate} from './learning_environments.js';
@@ -14,6 +15,7 @@ export function connectTraining({api, mediaUrl, error, busy}) {
   const eligible = () => history.filter(job => job.kind !== 'evaluation' && environmentOf(job.config) === $('trainingEnvironment').value && job.policy === $('trainingAlgorithm').value && job.checkpoints.length && !['running','stopping'].includes(job.status));
   function controls() {
     const blocked = isRunning() || busy();
+    document.querySelectorAll("[data-lesson-method]").forEach(button=>button.disabled=blocked);
     $('trainingStart').disabled = blocked || ($('trainingMode').value !== 'new' && !$('trainingSource').value);
     $('trainingStop').hidden = !['running','stopping'].includes(state.status) || learning.isRunning();
     $('trainingStop').disabled = state.status === 'stopping';
@@ -64,6 +66,7 @@ export function connectTraining({api, mediaUrl, error, busy}) {
     if (rl() && mode === 'new' && Number($('trainingBatch').value) < 2) $('trainingBatch').value = 8;
     $('trainingStepLabel').textContent = rl() ? '수집할 환경 스텝 · 이어 학습은 추가량' : mode === 'resume' ? '재개 후 총 학습 스텝 목표' : '학습 업데이트 스텝';
     $('trainingStart').textContent = `${names[algorithm]} ${mode === 'finetune' ? '미세조정' : mode === 'resume' ? '이어 학습' : '학습 시작'} →`;
+    renderMethodLesson(algorithm,ownRunning() || busy() || learning.isRunning());
     const method = methods.find(item => item.id === algorithm);
     $('trainingMethodInfo').textContent = method ? `${environment.name} · ${method.description} 입력: ${rl()?environment.input:method.input} · ${method.engine}` : '';
     $('trainingNotes').textContent = rl() ? `${environment.name}에서 경험을 직접 수집합니다. ${environment.input}를 입력으로 받고, 환경의 기본 보상을 사용합니다. 영상 모델과 입력 조건이 다릅니다. PPO 스텝은 경험 수집 간격의 배수여야 합니다. 모델과 로그는 로컬에 저장됩니다.` : '처음 N개 시연 에피소드를 사용합니다. 작은 모델은 로컬 실험용으로 구조를 줄인 설정입니다. 미세조정은 가중치를 가져와 새 optimizer로 학습하고, 재개는 optimizer와 스텝을 복원합니다. 데이터셋과 영상 인코더 초기 가중치를 다운로드하며 결과는 로컬에 저장됩니다.';
@@ -128,6 +131,11 @@ export function connectTraining({api, mediaUrl, error, busy}) {
   $('trainingHistoryFilter').onchange=()=>{visibleRecords=6;renderHistory();};
   $('trainingHistorySearch').oninput=()=>{visibleRecords=6;renderHistory();};
   $('trainingHistoryMore').onclick=()=>{visibleRecords+=6;renderHistory();};
+  document.querySelectorAll('[data-lesson-method]').forEach(button=>button.onclick=()=>{
+    if($('trainingAlgorithm').disabled)return;
+    $('trainingAlgorithm').value=button.dataset.lessonMethod;
+    $('trainingAlgorithm').dispatchEvent(new Event('change',{bubbles:true}));
+  });
   $('trainingDevice').onchange=()=>configure();
   $('trainingAlgorithm').onchange = () => { $('trainingSteps').value = $('trainingAlgorithm').value==='ppo' ? 1024 : 1000; sourceRendered=''; configure(true); };
   $('trainingEnvironment').onchange = () => { $('trainingDataset').value=environments[$('trainingEnvironment').value].dataset; sourceRendered=''; configure(true); };

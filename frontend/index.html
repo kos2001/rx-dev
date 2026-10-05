@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="hermes.css">
   <link rel="stylesheet" href="platform.css">
   <link rel="stylesheet" href="learning_cards.css">
+  <link rel="stylesheet" href="education.css">
 </head>
 <body>
   <aside class="sidebar">
@@ -99,6 +100,13 @@
       <section class="panel video-panel" id="videoPanel" hidden><div class="panel-heading"><div><p class="eyebrow">SIMULATOR RECORDINGS</p><h2>시뮬레이터 원본 영상</h2></div><span class="muted" id="videoNote"></span></div><div id="videos" class="videos"></div><div id="demoSummary"></div></section>
     </div>
     <div id="trainingView" hidden>
+      <section class="learning-primer" aria-labelledby="learningPrimerTitle">
+        <div class="primer-heading"><div><p class="eyebrow">LEARN BY EXPLORING</p><h2 id="learningPrimerTitle">로봇은 어떻게 배울까요?</h2><p>먼저 배우는 방법을 이해하고, 실행 결과를 보며 다음 실험으로 이어가세요.</p></div><span class="lesson-label">개념 → 학습 → 확인</span></div>
+        <div class="learning-paths">
+          <article class="learning-path imitation-path"><span class="path-label">01 · 모방학습 / ACT · Diffusion</span><h3>시연을 보고 따라 배워요.</h3><ol class="concept-flow"><li><span aria-hidden="true">▤</span><strong>시연 데이터</strong><small>관측과 정답 행동</small></li><li><span aria-hidden="true">↗</span><strong>정책 학습</strong><small>행동을 예측하는 모델</small></li><li><span aria-hidden="true">◎</span><strong>새 상황 실행</strong><small>배운 행동을 평가</small></li></ol><p>정책은 지금 본 상태에서 어떤 행동을 할지 결정하는 모델입니다.</p></article>
+          <article class="learning-path reinforcement-path"><span class="path-label">02 · 강화학습 / PPO · SAC</span><h3>직접 시도하며 보상으로 배워요.</h3><ol class="concept-flow"><li><span aria-hidden="true">◉</span><strong>환경 관측</strong><small>현재 상태 확인</small></li><li><span aria-hidden="true">↗</span><strong>행동 시도</strong><small>시뮬레이터에서 실행</small></li><li><span aria-hidden="true">✦</span><strong>보상과 업데이트</strong><small>경험으로 정책 개선</small></li></ol><p>관측 → 행동 → 보상의 과정을 반복합니다. 보상 상승만으로 성공을 판단하지는 않습니다.</p></article>
+        </div>
+      </section>
       <nav class="workspace-steps" aria-label="학습 워크스페이스 단계"><button data-scroll="trainingConfiguration"><span>01 / TRAIN</span><strong>로봇 정책 학습</strong><small>모방학습 · 강화학습</small></button><button data-scroll="evaluationWorkspace"><span>02 / EVALUATE</span><strong>시뮬레이터 평가</strong><small>실행 영상 · 성공 지표</small></button><button data-scroll="learningWorkspace"><span>03 / SOLVE WITH AGENTS</span><strong>Agent 실험 & 검증</strong><small>분석 · 설계 · 최종 평가</small></button><button data-scroll="trainingArchive"><span>04 / CONTINUE</span><strong>기록에서 이어가기</strong><small>체크포인트 · 학습 재개</small></button></nav>
       <div class="learning-overview" aria-label="워크스페이스 기록 요약">
         <article><span class="overview-symbol">↗</span><div><small>학습 기록</small><strong id="trainingRecordCount">—</strong></div><p>새 학습 · 미세조정 · 재개</p></article>
@@ -108,6 +116,11 @@
       <section id="trainingConfiguration" class="panel training-panel workspace-card" aria-label="모델 학습">
         <div class="workspace-card-heading"><div class="workspace-title"><span class="workspace-icon">↗</span><div><p class="eyebrow">01 / POLICY LEARNING</p><h2>로봇 정책 학습</h2></div></div><span class="workspace-tag">IMITATION + REINFORCEMENT</span></div>
         <p class="muted" id="trainingMethodInfo">학습 방식 목록을 불러오는 중…</p>
+        <div class="method-lesson" aria-label="학습 방법 알아보기">
+          <div class="method-selector" role="group" aria-label="설명할 학습 방법 선택"><button type="button" data-lesson-method="act" aria-pressed="true">ACT <small>시연 · 행동 묶음</small></button><button type="button" data-lesson-method="diffusion" aria-pressed="false">Diffusion <small>시연 · 점진적 생성</small></button><button type="button" data-lesson-method="ppo" aria-pressed="false">PPO <small>경험 · 안정적 업데이트</small></button><button type="button" data-lesson-method="sac" aria-pressed="false">SAC <small>경험 · 다양하게 탐색</small></button></div>
+          <div id="methodLessonContent" class="method-lesson-content" aria-live="polite"></div>
+          <p class="lesson-hint">방법을 누르면 아래 학습 설정과 설명이 함께 바뀝니다. 실행은 ‘학습 시작’ 버튼으로 시작합니다.</p>
+        </div>
         <form id="trainingForm" class="training-form card-form">
           <fieldset class="config-card"><legend><span>01</span> 정책과 환경</legend><p>어디에서, 어떤 방법으로 배울까요?</p><div class="config-fields"><label>학습 환경<select id="trainingEnvironment"><option value="pusht">PushT · Pymunk</option><option value="aloha">ALOHA · Peg insertion · MuJoCo</option><option value="transfer">ALOHA · Cube transfer · MuJoCo</option></select></label>
 <label>학습 방법<select id="trainingAlgorithm"><option value="act">ACT · 모방학습</option><option value="diffusion">Diffusion Policy · 모방학습</option><option value="ppo">PPO · 강화학습</option><option value="sac">SAC · 강화학습</option></select></label>
@@ -131,6 +144,7 @@
       </section>
       <section id="evaluationWorkspace" class="panel training-panel workspace-card"><div class="workspace-card-heading"><div class="workspace-title"><span class="workspace-icon">◎</span><div><p class="eyebrow">02 / SIMULATION & EVIDENCE</p><h2>시뮬레이터 평가</h2></div></div><span class="workspace-tag">MEASURED RESULTS</span></div>
         <p class="muted">같은 입력·Seed·스텝 제한의 결과끼리 비교하세요. 학습 기록 카드의 평가 버튼으로 실행하고 영상을 저장합니다.</p>
+        <div class="metric-guide" aria-label="평가 지표 읽는 법"><article><span class="guide-symbol">%</span><strong>성공률 · 얼마나 해냈나요?</strong><p>성공 에피소드 수 ÷ 전체 평가 수. 예를 들어 5번 중 3번 성공이면 60%입니다.</p></article><article><span class="guide-symbol">✦</span><strong>보상 · 얼마나 잘 움직였나요?</strong><p>환경이 행동에 주는 점수입니다. 환경마다 의미가 달라 성공 여부와 함께 읽어요.</p></article><article><span class="guide-symbol">↔</span><strong>95% 구간 · 얼마나 확실한가요?</strong><p>성공률 추정의 불확실성을 나타냅니다. 평가가 적으면 구간이 넓을 수 있어요.</p></article></div>
         <div class="evaluation-settings"><div class="evaluation-settings-title"><strong>평가 조건</strong><span>선택한 정책의 환경에서 실행합니다.</span></div><label>평가 에피소드<input id="policyEvalEpisodes" type="number" min="1" max="20" value="5"></label>
 <label>에피소드당 최대 스텝<input id="policyEvalSteps" type="number" min="10" max="300" value="300"></label></div>
         <div id="policyEvaluations"></div>
@@ -138,6 +152,8 @@
       <section id="learningWorkspace" class="panel training-panel workspace-card" aria-label="Agent 학습 개선 실험">
         <div class="workspace-card-heading"><div class="workspace-title"><span class="workspace-icon">✳</span><div><p class="eyebrow">03 / SOLVE WITH AGENTS</p><h2>Agent 실험과 검증</h2></div></div><span class="workspace-tag">ANALYZE → DESIGN → REVIEW</span></div>
         <p class="muted">완료된 학습을 근거로 기준·후보를 새로 학습하는 파일럿 비교입니다. 설정 하나의 변경을 실제 학습·평가로 검증합니다.</p>
+        <div class="agent-teaching-flow" aria-label="Agent 역할 이해하기"><article><span>⌕</span><div><strong>분석 · 왜 실패했을까?</strong><p>기록과 지표에서 문제의 단서를 찾아요.</p></div></article><article><span>↗</span><div><strong>설계 · 무엇을 바꿀까?</strong><p>설정 하나를 바꾸고 비교 가설을 세워요.</p></div></article><article><span>✓</span><div><strong>검토 · 정말 개선됐을까?</strong><p>별도 최종 평가와 반례로 근거를 확인해요.</p></div></article></div>
+        <p class="lesson-callout">개발 평가는 설정을 비교하는 연습입니다. 최종 평가는 후보를 고정한 뒤 새로운 Seed로 확인합니다. Seed는 평가 시작 조건을 재현하는 번호입니다.</p>
         <form id="learningAgentForm" class="training-form card-form agent-config-form">
           <fieldset class="config-card"><legend><span>01</span> 분석할 학습</legend><p>완료된 정책을 실험의 출발점으로.</p><div class="config-fields"><label>분석할 완료된 학습<select id="learningAgentSource" required></select></label>
 <label>정책당 학습 스텝 상한<input id="learningAgentSteps" type="number" min="1" max="512" value="128" required></label></div></fieldset>
