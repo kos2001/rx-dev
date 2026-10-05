@@ -25,3 +25,10 @@ ACT/Diffusion use images and robot position. Compare policies only under
 matched input and evaluation conditions. Previously inspected evaluations
 are development evidence. Preserve the caller's JSON schema and treat prior
 agents' prose as hypotheses. Return no commands, paths or execution requests.
+
+For LIBERO, keep the single selected manipulation task fixed. Use only the pinned
+official dataset episodes for that task: canonical two-camera 256x256 images,
+8D robot state and 7D relative actions. Native check_success and reward 1 define
+success; first success and final retention are distinct. Compare paired fixed
+initial-state indices, not seeds alone; final indices must be disjoint from
+development indices. Public gallery scores are not newly trained pilot results.

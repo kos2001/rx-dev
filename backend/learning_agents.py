@@ -13,7 +13,7 @@ from .learning_protocol import constraints, proposal, request_body, SKILLS, vali
 from .learning_harness import checkpoint_receipt, runtime_versions, evidence_ledger, final_decision, verify_episode_traces
 from .training import validate
 from .training_methods import IMITATION
-from .learning_environments import environment_of, evaluation_supported, ENVIRONMENTS
+from .learning_environments import environment_of, evaluation_supported, ENVIRONMENTS, is_libero
 
 
 def numerical_curve(folder, algorithm):
@@ -100,10 +100,18 @@ def measured_comparison(baseline, candidate):
         arms[name] = {"successes": successes, "episodes": len(runs),
                       "success_rate": metrics["success_rate"], "success_interval_95": interval(successes, len(runs)),
                       "mean_best_reward": metrics["mean_best_reward"], "evaluation_seconds": metrics["wall_seconds"]}
+    if is_libero(baseline):
+        from .libero_runtime import initial_state_index
+        expected = [initial_state_index(seed, 50) for seed in seeds]
+        if any([run.get('init_state_index') for run in metrics['runs']] != expected or metrics.get('initialization_count') != 50 for metrics in (baseline, candidate)):
+            raise ValueError('LIBERO evaluation initial states do not match paired seeds')
     difference = arms["candidate"]["successes"] - arms["baseline"]["successes"]
     pairs = [{"seed": seed, "baseline_success": a["success"], "candidate_success": b["success"],
               "baseline_best_reward": a["best_reward"], "candidate_best_reward": b["best_reward"]}
              for seed, a, b in zip(seeds, baseline["runs"], candidate["runs"])]
+    if is_libero(baseline):
+        for pair, run in zip(pairs, baseline['runs']):
+            pair['init_state_index'] = run['init_state_index']
     return {"algorithm": baseline["algorithm"], "environment": environment_of(baseline),
             "simulator": ENVIRONMENTS[environment_of(baseline)], "input": baseline["input"], "seeds": seeds,
             "step_limit": baseline["step_limit"], **arms, "pairs": pairs,
@@ -208,6 +216,13 @@ class LearningAgentJobs(AgentJobs):
                         "experiment_history": history, "evaluation_seeds": eval_seeds,
                         "pilot_note": "Both policies are newly initialized compact pilots, not the parent checkpoint"}
             evidence["simulator"] = ENVIRONMENTS[baseline["environment"]]
+            if is_libero(baseline):
+                from .libero_runtime import DATASET_REVISION, initial_state_index
+                selection = json.loads((self.training.root / parent['id'] / 'demonstrations.json').read_text())
+                if selection['revision'] != DATASET_REVISION or selection['task'] != evidence['simulator']['task'].replace('_', ' '):
+                    raise ValueError('Source LIBERO demonstrations do not match the pinned task')
+                evidence['demonstrations'] = selection
+                evidence['evaluation_initial_states'] = [initial_state_index(seed, 50) for seed in eval_seeds]
             identifier = uuid.uuid4().hex
             folder = self.folder / identifier
             folder.mkdir(parents=True)
@@ -217,7 +232,7 @@ class LearningAgentJobs(AgentJobs):
                             "skills": SKILLS, "training_seed": training_seed, "evaluation_seeds": eval_seeds,
                             "baseline_config": baseline, "step_limit": step_limit, "children": {},
                             "harness_version": 1, "holdout_seeds": holdout_seeds, "events": [],
-                            "runtime_versions": runtime_versions(), "checkpoint_receipts": {}, "child_receipts": {}}
+                            "runtime_versions": runtime_versions(baseline["environment"]), "checkpoint_receipts": {}, "child_receipts": {}}
             self.save()
             (folder / "evidence.json").write_text(json.dumps(evidence, ensure_ascii=False, indent=2))
             import threading
@@ -245,7 +260,7 @@ class LearningAgentJobs(AgentJobs):
                 raise RuntimeError("Experiment worker or trainer is still active")
             if not self.client.health().get("connected"):
                 raise RuntimeError("rx-dev Hermes gateway is not connected")
-            if self.current["runtime_versions"] != runtime_versions():
+            if self.current["runtime_versions"] != runtime_versions(self.current.get("environment")):
                 raise ValueError("Runtime versions changed; start a new experiment")
             folder = self.folder / self.current["id"]
             evidence = json.loads((folder / "evidence.json").read_text())
@@ -378,6 +393,11 @@ class LearningAgentJobs(AgentJobs):
             if set(holdout["seeds"]) & set(comparison["seeds"]) or self.current["training_seed"] in holdout["seeds"]:
                 raise ValueError("Final evaluation seeds overlap development or training")
             self.update(stage="counterexample_verification")
+            if is_libero(evidence['baseline_config']):
+                development_states = {run['init_state_index'] for run in evaluations['baseline']['runs']}
+                final_states = {run['init_state_index'] for run in holdout_evaluations['baseline']['runs']}
+                if development_states & final_states:
+                    raise ValueError('LIBERO final initial states overlap development states')
             ledger = evidence_ledger(holdout_evaluations["baseline"], holdout_evaluations["candidate"], holdout)
             decision = final_decision(comparison, holdout, ledger)
             bundle = {"development": development_ledger, "holdout": ledger, "decision": decision}

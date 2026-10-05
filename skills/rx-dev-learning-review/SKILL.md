@@ -26,3 +26,10 @@ the parent's checkpoint and from longer-run or real-robot performance.
 Return the caller's JSON schema with measured evidence, limitations and next
 step. Never replace the original checkpoint, change measurements, recommend
 retuning on these evaluation seeds as a final holdout, or execute tools.
+
+For LIBERO, keep the single selected manipulation task fixed. Use only the pinned
+official dataset episodes for that task: canonical two-camera 256x256 images,
+8D robot state and 7D relative actions. Native check_success and reward 1 define
+success; first success and final retention are distinct. Compare paired fixed
+initial-state indices, not seeds alone; final indices must be disjoint from
+development indices. Public gallery scores are not newly trained pilot results.

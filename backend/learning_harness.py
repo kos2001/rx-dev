@@ -26,7 +26,15 @@ def checkpoint_receipt(checkpoint):
     return records
 
 
-def runtime_versions():
+def runtime_versions(environment=None):
+    if environment and environment.startswith('libero_'):
+        import json
+        import subprocess
+        from .libero_runtime import worker_python
+        names = ('lerobot', 'hf-libero', 'robosuite', 'mujoco', 'numpy', 'torch', 'torchvision', 'gymnasium', 'diffusers')
+        code = 'import importlib.metadata as m, json; print(json.dumps({n:m.version(n) for n in ' + repr(names) + '}))'
+        result = subprocess.run([worker_python(), '-c', code], capture_output=True, text=True, check=True, timeout=15)
+        return {'worker': worker_python(), **json.loads(result.stdout)}
     versions = {}
     for name in ('lerobot', 'gymnasium', 'gym-aloha', 'gym-pusht', 'mujoco', 'torch', 'stable-baselines3'):
         try:
@@ -53,11 +61,18 @@ def evidence_ledger(baseline, candidate, comparison):
                 issues.append(f'{arm}:{seed}: non-finite reward')
             if metrics.get('environment') in ('aloha', 'transfer') and run['success'] and reward != 4:
                 issues.append(f'{arm}:{seed}: success contradicts native reward 4')
+            if metrics.get('environment', '').startswith('libero_') and run['success'] and reward != 1:
+                issues.append(f'{arm}:{seed}: success contradicts native LIBERO reward 1')
             final = run.get('final_success')
             if run['success'] and final is False:
                 failures.append({'arm': arm, 'seed': seed, 'reason': 'success_not_retained'})
             if run['success'] and type(final) is not bool:
                 terminal.append({'arm': arm, 'seed': seed})
+    if baseline.get('environment', '').startswith('libero_'):
+        left = [run.get('init_state_index') for run in baseline['runs']]
+        right = [run.get('init_state_index') for run in candidate['runs']]
+        if left != right or any(type(index) is not int for index in left) or len(set(left)) != len(left):
+            issues.append('LIBERO paired initial states are missing, unmatched or repeated')
     for pair in comparison['pairs']:
         if pair['baseline_success'] and not pair['candidate_success']:
             losses.append(pair['seed'])
@@ -107,5 +122,8 @@ def verify_episode_traces(metrics, folder):
             raise ValueError('Episode metrics contradict native trace evidence')
         if metrics.get('environment') in ('aloha', 'transfer') and any(point['is_success'] != (point['reward'] == 4) for point in trace):
             raise ValueError('Trace success contradicts native MuJoCo reward')
+        if metrics.get('environment', '').startswith('libero_'):
+            if any(point['is_success'] != (point['reward'] == 1) or len(point.get('action', [])) != 7 or any(not math.isfinite(v) for v in point['action']) for point in trace):
+                raise ValueError('Trace contradicts native LIBERO action/reward contract')
         receipts.extend(checkpoint_receipt(path))
     return receipts

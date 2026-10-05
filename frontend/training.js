@@ -15,7 +15,7 @@ export function connectTraining({api, mediaUrl, error, busy}) {
   const eligible = () => history.filter(job => job.kind !== 'evaluation' && environmentOf(job.config) === $('trainingEnvironment').value && job.policy === $('trainingAlgorithm').value && job.checkpoints.length && !['running','stopping'].includes(job.status));
   function controls() {
     const blocked = isRunning() || busy();
-    document.querySelectorAll("[data-lesson-method]").forEach(button=>button.disabled=blocked);
+    document.querySelectorAll("[data-lesson-method]").forEach(button=>button.disabled=blocked || Boolean(environments[$('trainingEnvironment').value].methods && !environments[$('trainingEnvironment').value].methods.includes(button.dataset.lessonMethod)));
     $('trainingStart').disabled = blocked || ($('trainingMode').value !== 'new' && !$('trainingSource').value);
     $('trainingStop').hidden = !['running','stopping'].includes(state.status) || learning.isRunning();
     $('trainingStop').disabled = state.status === 'stopping';
@@ -32,8 +32,14 @@ export function connectTraining({api, mediaUrl, error, busy}) {
     return selected !== $('trainingSource').value;
   }
   function configure(loadSource=false) {
-    const algorithm = $('trainingAlgorithm').value;
     const environment=environments[$('trainingEnvironment').value];
+    for(const option of $('trainingAlgorithm').options)option.disabled=Boolean(environment.methods && !environment.methods.includes(option.value));
+    if(environment.methods && !environment.methods.includes($('trainingAlgorithm').value))$('trainingAlgorithm').value='act';
+    const algorithm = $('trainingAlgorithm').value;
+    const libero=$('trainingEnvironment').value.startsWith('libero_');
+    if(libero)$('trainingDataset').value=environment.dataset;
+    $('trainingEpisodes').max=libero?'40':'1000';
+    if(libero && Number($('trainingEpisodes').value)>40)$('trainingEpisodes').value=40;
     $('trainingMode').querySelector('[value="finetune"]').disabled = rl();
     if (rl() && $('trainingMode').value === 'finetune') $('trainingMode').value = 'new';
     const mode = $('trainingMode').value;
@@ -57,7 +63,7 @@ export function connectTraining({api, mediaUrl, error, busy}) {
         $('trainingRollout').value = source.config.rollout_steps;
       }
     }
-    for (const id of ['trainingDataset','trainingEpisodes']) $(id).disabled = rl() || mode === 'resume';
+    for (const id of ['trainingDataset','trainingEpisodes']) $(id).disabled = rl() || mode === 'resume' || libero && id==='trainingDataset';
     for (const id of ['trainingBatch','trainingSeed','trainingLearningRate','trainingGamma','trainingRollout']) $(id).disabled = mode === 'resume';
     $('trainingPreset').disabled = mode !== 'new';
     $('trainingSteps').min = rl() ? '32' : '1';
@@ -70,6 +76,7 @@ export function connectTraining({api, mediaUrl, error, busy}) {
     const method = methods.find(item => item.id === algorithm);
     $('trainingMethodInfo').textContent = method ? `${environment.name} · ${method.description} 입력: ${rl()?environment.input:method.input} · ${method.engine}` : '';
     $('trainingNotes').textContent = rl() ? `${environment.name}에서 경험을 직접 수집합니다. ${environment.input}를 입력으로 받고, 환경의 기본 보상을 사용합니다. 영상 모델과 입력 조건이 다릅니다. PPO 스텝은 경험 수집 간격의 배수여야 합니다. 모델과 로그는 로컬에 저장됩니다.` : '처음 N개 시연 에피소드를 사용합니다. 작은 모델은 로컬 실험용으로 구조를 줄인 설정입니다. 미세조정은 가중치를 가져와 새 optimizer로 학습하고, 재개는 optimizer와 스텝을 복원합니다. 데이터셋과 영상 인코더 초기 가중치를 다운로드하며 결과는 로컬에 저장됩니다.';
+    if(libero)$('trainingNotes').textContent='선택한 과제의 시연만 공식 lerobot/libero 데이터에서 골라 학습합니다. ACT·Diffusion 지원: 두 256×256 카메라와 8차원 로봇 상태 → 7차원 상대 행동. 최초 실행 시 별도 LIBERO 환경과 데이터 다운로드가 필요합니다. 재개는 optimizer를 복원하고, Agent 실험은 기준·후보를 새로 학습합니다. 평가에서는 Seed에 대응하는 고정 초기 상태를 사용하며 성공 뒤에도 끝까지 기록합니다.';
     $('learningSignalInfo').textContent=rl()?'환경 경험과 보상으로 정책을 학습합니다.':'시연 데이터로 행동을 학습합니다.';
     $('experienceSignal').hidden=!rl();
     $('trainingConfigSummary').textContent=`${names[algorithm]} · ${environment.name} · ${$('trainingDevice').value.toUpperCase()}`;
@@ -96,7 +103,7 @@ export function connectTraining({api, mediaUrl, error, busy}) {
         <small class="record-date">${esc(new Date(job.started_at*1000).toLocaleString())}</small><small class="record-id">${esc(job.id)}</small>
         ${saved && canEvaluate(config)?`<div class="training-actions"><button class="primary" data-policy-eval="${job.id}">이 정책 평가 →</button></div>`:''}
         ${job.videos?.length?`<details><summary>평가 영상 ${job.videos.length}개</summary><div class="record-videos">${job.videos.map(path=>`<video controls playsinline preload="none" src="${esc(mediaUrl(path))}"></video>`).join('')}</div></details>`:''}
-        <details><summary>설정과 체크포인트</summary><p>${esc(config.dataset || environment.input)} · Seed ${config.seed}</p>${config.source_job?`<p>원본 학습 <code>${esc(config.source_job)}</code></p>`:''}${job.checkpoints.map(path=>`<p><code>${esc(path)}</code></p>`).join('')}${job.evaluation?`<p>최고 보상 평균 ${job.evaluation.mean_best_reward.toFixed(3)} · Seed ${job.evaluation.seeds.map(esc).join(', ')}</p>`:''}</details>
+        <details><summary>설정과 체크포인트</summary><p>${esc(config.dataset || environment.input)} · Seed ${config.seed}</p>${job.demonstrations?`<p>선택 과제 시연 ${job.demonstrations.episode_indices.length}개 · 에피소드 ${job.demonstrations.episode_indices.map(esc).join(', ')}</p><p>데이터 고정 버전 <code>${esc(job.demonstrations.revision)}</code></p>`:''}${job.evaluation?.runs?.[0]?.init_state_index!==undefined?`<p>LIBERO 초기 상태 ${job.evaluation.runs.map(run=>esc(run.init_state_index)).join(', ')} · 종료까지 성공 유지 ${job.evaluation.runs.filter(run=>run.final_success).length}/${job.evaluation.episodes}</p>`:''}${config.source_job?`<p>원본 학습 <code>${esc(config.source_job)}</code></p>`:''}${job.checkpoints.map(path=>`<p><code>${esc(path)}</code></p>`).join('')}${job.evaluation?`<p>최고 보상 평균 ${job.evaluation.mean_best_reward.toFixed(3)} · Seed ${job.evaluation.seeds.map(esc).join(', ')}</p>`:''}</details>
         <details><summary>이 실행의 로그</summary><pre>${esc((job.logs||[]).join('\n'))}</pre></details></article>`;
     }).join(''):'<div class="card-empty"><strong>표시할 기록이 없습니다.</strong><p>새 학습을 시작하거나 검색 조건을 바꿔보세요.</p></div>';
     $('trainingHistory').querySelectorAll('[data-policy-eval]').forEach(button=>button.onclick=()=>evaluate(button.dataset.policyEval));

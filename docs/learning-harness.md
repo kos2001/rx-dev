@@ -43,3 +43,14 @@ The browser harness test uses explicitly synthetic API responses to check render
 - Real saved ACT, Diffusion, PPO and SAC policies executed in each of PushT, ALOHA insertion and ALOHA transfer (12 short connectivity evaluations).
 - The public pretrained transfer ACT policy additionally completed a full 400-step episode at seed 42000: first native success at step 262, final success true, maximum/final reward 4. This validates the success/retention evaluator, not a new model improvement claim.
 - An isolated real MuJoCo PPO workflow ran two 128-step trainings, paired development evaluation (one episode per arm) and separate final evaluation (two episodes per arm). It reconciled six native traces and reused all six completed child jobs after recovery. Its final verdict was inconclusive (p=1). Role responses in this integration check were fixed local fixtures; no new external model call was needed.
+
+## LIBERO task adapter
+
+Two fixed LIBERO tasks now support ACT/Diffusion service training and the same
+Agent harness. Demonstrations are filtered to one task from a pinned official
+dataset; camera conventions are canonical 256x256, separate from the public
+128x128 basket gallery policy. Evaluation pairs fixed benchmark state indices
+derived from seeds and rejects overlap between development/final state indices.
+Native 7D actions, reward/success and final retention are recorded and checked.
+The separate worker's actual package versions participate in recovery checks.
+See [LIBERO setup and evidence](libero-learning.md) for the supported scope.

@@ -70,7 +70,7 @@ sh run_libero_success.sh --output outputs/libero-evaluations/drawer-new
 원본 행동·성공 판정 trace, 모델·영상·trace의 해시와 실행 버전이 포함됩니다.
 결과는 `outputs/libero-evaluations/act-drawer-003/`에서 생성했으며 가중치는 저장소에서 제외됩니다.
 `tests/browser_libero_success.cjs`는 백엔드 없이도 실제 영상 재생, 전체 결과·원본 기록 링크와
-모바일 배치를 검증합니다. 서비스에서 신규 LIBERO 학습·평가를 실행하는 버튼은 아직 없습니다.
+모바일 배치를 검증합니다. 서비스에서 두 LIBERO 과제의 ACT·Diffusion 학습·재개·평가와 Agent 비교 실험을 실행할 수 있습니다. 설정과 검증 조건은 [LIBERO 학습 연결 문서](docs/libero-learning.md)에 있습니다.
 
 ### 수프 통조림을 바구니에 넣기
 

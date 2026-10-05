@@ -12,7 +12,7 @@ import uuid
 import math
 
 from .training_methods import IMITATION, REINFORCEMENT
-from .learning_environments import ENVIRONMENTS, environment_of, evaluation_supported
+from .learning_environments import ENVIRONMENTS, environment_of, evaluation_supported, is_libero
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -26,15 +26,20 @@ def validate(body):
               "preset": "compact", "mode": "new", **body}
     config["environment"] = body.get("environment", environment_of(body))
     if not isinstance(config["environment"], str) or config["environment"] not in ENVIRONMENTS:
-        raise ValueError("environment must be pusht, aloha or transfer")
+        raise ValueError("Select a supported simulator environment")
     if "dataset" not in body:
         config["dataset"] = ENVIRONMENTS[config["environment"]]["dataset"]
     for key, value in ENVIRONMENTS.items():
-        if config["dataset"] == value["dataset"] and config["environment"] != key:
+        if value["type"] != "libero" and config["dataset"] == value["dataset"] and config["environment"] != key:
             raise ValueError("Dataset and simulator environment must match")
     algorithm = config["algorithm"]
     if not isinstance(algorithm, str) or algorithm not in IMITATION | REINFORCEMENT:
         raise ValueError("algorithm must be act, diffusion, ppo or sac")
+    if is_libero(config):
+        if algorithm not in IMITATION:
+            raise ValueError("LIBERO currently supports ACT and Diffusion imitation learning")
+        if config['dataset'] != 'lerobot/libero':
+            raise ValueError("LIBERO requires the pinned official single-task demonstration selection")
     if config["mode"] not in ("new", "finetune", "resume"):
         raise ValueError("mode must be new, finetune or resume")
     if config["preset"] not in ("compact", "standard"):
@@ -55,6 +60,8 @@ def validate(body):
                            ("episodes", 1, 1000), ("seed", 0, 2147483647)]:
         if type(config[key]) is not int or not low <= config[key] <= high:
             raise ValueError(f"{key} must be an integer from {low} to {high}")
+    if is_libero(config) and config["episodes"] > 40:
+        raise ValueError("LIBERO supports at most 40 demonstrations per selected task")
     if algorithm in IMITATION:
         if any(key in body for key in ("gamma", "rollout_steps", "learning_rate")):
             raise ValueError("RL options only apply to PPO and SAC")
@@ -146,6 +153,8 @@ class TrainingJobs:
             result["checkpoints"] = [str(rl.relative_to(ROOT)) if rl.is_relative_to(ROOT) else str(rl)]
         metrics = folder / "evaluation" / "metrics.json"
         result["evaluation"] = json.loads(metrics.read_text()) if metrics.is_file() and job["status"] == "completed" else None
+        selection = folder / 'demonstrations.json'
+        result['demonstrations'] = json.loads(selection.read_text()) if selection.is_file() else None
         result["videos"] = []
         if result["evaluation"] and folder.is_relative_to(ROOT / "outputs"):
             result["videos"] = ["/media/" + p.relative_to(ROOT / "outputs").as_posix()
@@ -229,18 +238,30 @@ class TrainingJobs:
         config["input"] = ENVIRONMENTS[config["environment"]]["state_input"] if original["policy"] in REINFORCEMENT else "pixels_agent_pos"
         return self.launch(config, source, kind="evaluation", owner=owner)
 
+    def worker_python(self, config):
+        if not is_libero(config):
+            return self.python
+        from .libero_runtime import worker_python
+        return worker_python()
+
     def launch(self, config, source=None, kind="training", owner=None):
         with self.lock:
             if self.busy():
                 raise RuntimeError("Training is already running")
+            python = self.worker_python(config)
             identifier = uuid.uuid4().hex
             folder = self.root / identifier
             folder.mkdir()
             (folder / "request.json").write_text(json.dumps(config, indent=2))
             if kind == "evaluation":
-                command = [self.python, "-u", "-m", "backend.policy_evaluation",
+                command = [python, "-u", "-m", "backend.policy_evaluation",
                            "--config", str(folder / "request.json"), "--checkpoint", str(source),
                            "--output", str(folder / "evaluation")]
+            elif is_libero(config):
+                command = [python, "-u", "-m", "backend.libero_training", "--config", str(folder / "request.json"),
+                           "--output", str(folder / "model")]
+                if source:
+                    command += ["--checkpoint", str(source)]
             elif config["algorithm"] in REINFORCEMENT:
                 command = [self.python, "-u", "-m", "backend.rl_training", "--config", str(folder / "request.json"),
                            f"--output_dir={folder / 'model'}"]
@@ -252,6 +273,12 @@ class TrainingJobs:
                                HF_HOME=str(ROOT / "outputs" / "hf-cache"),
                                TORCH_HOME=str(ROOT / "outputs" / "torch-cache"),
                                HF_HUB_DISABLE_TELEMETRY="1", TOKENIZERS_PARALLELISM="false")
+            if is_libero(config):
+                environment.update(LIBERO_CONFIG_PATH=str(folder / 'libero-config'),
+                                   MPLCONFIGDIR=str(folder / 'matplotlib'),
+                                   NUMBA_CACHE_DIR=str(ROOT / 'outputs' / 'numba-cache'),
+                                   HF_XET_CACHE=str(ROOT / 'outputs' / 'hf-cache' / 'xet'),
+                                   MUJOCO_GL='cgl' if sys.platform == 'darwin' else 'egl')
             with (folder / "run.log").open("w") as log:
                 self.process = subprocess.Popen(command, cwd=ROOT, env=environment, stdout=log,
                                                 stderr=subprocess.STDOUT, start_new_session=True)

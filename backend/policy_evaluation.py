@@ -1,4 +1,4 @@
-"""Evaluate saved learning policies on identical seeded PushT episodes."""
+"""Evaluate saved policies with matched native simulator conditions and full evidence."""
 import argparse
 import json
 from pathlib import Path
@@ -6,7 +6,7 @@ import time
 
 from .training_methods import REINFORCEMENT
 from .training_runner import check_device
-from .learning_environments import ENVIRONMENTS, environment_of
+from .learning_environments import ENVIRONMENTS, environment_of, is_libero
 
 
 def evaluate(config, checkpoint, output):
@@ -14,7 +14,9 @@ def evaluate(config, checkpoint, output):
     output.mkdir(parents=True)
     environment = environment_of(config)
     spec = ENVIRONMENTS[environment]
-    if config["algorithm"] in REINFORCEMENT:
+    if is_libero(config):
+        metrics = evaluate_libero(config, checkpoint, output)
+    elif config["algorithm"] in REINFORCEMENT:
         metrics = evaluate_rl(config, checkpoint, output)
     else:
         metrics = evaluate_imitation(config, checkpoint, output)
@@ -33,6 +35,9 @@ def record_policy(config, env, predict, reset, output, seed_policy=None):
     start = time.monotonic()
     runs = []
     def render():
+        if is_libero(config):
+            import numpy as np
+            return np.ascontiguousarray(env._env.env.sim.render(width=640, height=480, camera_name='agentview')[::-1, ::-1])
         if environment != "pusht":
             return env.unwrapped._env.physics.render(height=480, width=640, camera_id="angle")
         return env.render()
@@ -41,18 +46,27 @@ def record_policy(config, env, predict, reset, output, seed_policy=None):
             if seed_policy:
                 seed_policy(seed)
             reset()
+            if is_libero(config):
+                from .libero_runtime import initial_state_index
+                env.init_state_id = initial_state_index(seed, len(env._init_states))
+                init_state = env.init_state_id
             observation, _ = env.reset(seed=seed)
             rewards, trace = [], []
             first_success = None
-            with imageio.get_writer(output / f"seed-{seed}.mp4", fps=10 if environment == "pusht" else 50) as writer:
+            with imageio.get_writer(output / f"seed-{seed}.mp4", fps=20 if is_libero(config) else 10 if environment == "pusht" else 50) as writer:
                 writer.append_data(render())
                 for step in range(config["step_limit"]):
-                    observation, reward, terminated, truncated, info = env.step(predict(observation))
+                    action = predict(observation)
+                    observation, reward, terminated, truncated, info = env.step(action)
                     rewards.append(float(reward))
                     native_success = bool(info["is_success"])
+                    if is_libero(config) and native_success != bool(env._env.check_success()):
+                        raise ValueError('Wrapped and native LIBERO success disagree')
                     if native_success and first_success is None:
                         first_success = step + 1
                     trace.append({"step": step + 1, "reward": float(reward), "is_success": native_success})
+                    if is_libero(config):
+                        trace[-1]['action'] = action.tolist()
                     writer.append_data(render())
                     if truncated or terminated and environment == "pusht":
                         break
@@ -60,14 +74,16 @@ def record_policy(config, env, predict, reset, output, seed_policy=None):
             runs.append({"seed": seed, "success": first_success is not None, "steps": len(rewards),
                          "first_success_step": first_success, "final_success": trace[-1]["is_success"],
                          "best_reward": max(rewards), "sum_reward": sum(rewards), "final_reward": rewards[-1]})
+            if is_libero(config):
+                runs[-1]['init_state_index'] = init_state
     finally:
         env.close()
     return {"episodes": len(runs), "success_rate": sum(r["success"] for r in runs) / len(runs),
             "mean_best_reward": sum(r["best_reward"] for r in runs) / len(runs),
             "mean_sum_reward": sum(r["sum_reward"] for r in runs) / len(runs),
             "wall_seconds": time.monotonic() - start, "runs": runs,
-            "video_camera": "native" if environment == "pusht" else "angle",
-            "video_fps": 10 if environment == "pusht" else 50,
+            "video_camera": "agentview" if is_libero(config) else "native" if environment == "pusht" else "angle",
+            "video_fps": 20 if is_libero(config) else 10 if environment == "pusht" else 50,
             "success_semantics": "any native success; final_success measured separately",
             "continue_after_first_success": environment != "pusht"}
 
@@ -95,6 +111,46 @@ def evaluate_imitation(config, checkpoint, output):
         with torch.inference_mode():
             return post(policy.select_action(pre(preprocess_observation(observation))))[0].cpu().numpy()
     return record_policy(config, env, predict, policy.reset, output, seed_policy=torch.manual_seed)
+
+
+def evaluate_libero(config, checkpoint, output):
+    import numpy as np
+    import torch
+    from lerobot.policies.factory import get_policy_class, make_pre_post_processors
+    from lerobot.processor import LiberoProcessorStep, PolicyProcessorPipeline
+    from .libero_runtime import make_env, DATASET_REVISION, ASSET_REVISION
+    from .libero_policies import policy_observation
+    torch.set_num_threads(4)
+    policy = get_policy_class(config['algorithm']).from_pretrained(checkpoint, strict=True).to(config['device']).eval()
+    policy.config.device = config['device']
+    images = [feature.shape for feature in policy.config.input_features.values() if feature.type.value == 'VISUAL']
+    if len(images) != 2 or any(tuple(shape) != (3, 256, 256) for shape in images):
+        raise ValueError('Service LIBERO checkpoints require two canonical 256x256 dataset cameras')
+    if tuple(policy.config.input_features['observation.state'].shape) != (8,) or tuple(policy.config.output_features['action'].shape) != (7,):
+        raise ValueError('LIBERO checkpoint state/action contract mismatch')
+    if config['algorithm'] == 'act':
+        policy.config.n_action_steps = min(10, policy.config.chunk_size)
+    pre, post = make_pre_post_processors(policy.config, pretrained_path=checkpoint,
+                 preprocessor_overrides={'device_processor': {'device': config['device']}})
+    env = make_env(config, 256, 256)
+    if len(env._init_states) != 50:
+        env.close()
+        raise ValueError('Pinned LIBERO initial-state pool changed')
+    env_pre = PolicyProcessorPipeline(steps=[LiberoProcessorStep()])
+    def predict(observation):
+        batch = policy_observation(observation, env_pre)
+        batch['task'] = [ENVIRONMENTS[config['environment']]['task'].replace('_', ' ')]
+        with torch.inference_mode():
+            action = post(policy.select_action(pre(batch)))[0].cpu().numpy()
+        if action.shape != (7,) or not np.isfinite(action).all():
+            raise ValueError('LIBERO policy generated invalid action')
+        return action
+    metrics = record_policy(config, env, predict, policy.reset, output, seed_policy=torch.manual_seed)
+    metrics.update(dataset_revision=DATASET_REVISION, asset_revision=ASSET_REVISION,
+                   observation_processing='official LiberoProcessorStep; canonical two-axis image flip; 8D state',
+                   task=ENVIRONMENTS[config['environment']]['task'], strict_weight_loading=True,
+                   runtime_n_action_steps=policy.config.n_action_steps, initialization_count=len(env._init_states))
+    return metrics
 
 
 def evaluate_rl(config, checkpoint, output):

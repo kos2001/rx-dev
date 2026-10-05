@@ -28,3 +28,10 @@ evaluates on identical fresh initial-condition seeds. Do not choose or discard
 seeds, change algorithms or input privilege, invent a dataset, or promote a
 candidate. Return hypothesis, one numeric change and rationale in the supplied
 JSON schema. A click authorizes one experiment, not an indefinite search loop.
+
+For LIBERO, keep the single selected manipulation task fixed. Use only the pinned
+official dataset episodes for that task: canonical two-camera 256x256 images,
+8D robot state and 7D relative actions. Native check_success and reward 1 define
+success; first success and final retention are distinct. Compare paired fixed
+initial-state indices, not seeds alone; final indices must be disjoint from
+development indices. Public gallery scores are not newly trained pilot results.

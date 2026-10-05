@@ -127,7 +127,7 @@
           <p class="lesson-hint">방법을 누르면 아래 학습 설정과 설명이 함께 바뀝니다. 실행은 ‘학습 시작’ 버튼으로 시작합니다.</p>
         </div>
         <form id="trainingForm" class="training-form card-form">
-          <fieldset class="config-card"><legend><span>01</span> 정책과 환경</legend><p>어디에서, 어떤 방법으로 배울까요?</p><div class="config-fields"><label>학습 환경<select id="trainingEnvironment"><option value="pusht">PushT · Pymunk</option><option value="aloha">ALOHA · Peg insertion · MuJoCo</option><option value="transfer">ALOHA · Cube transfer · MuJoCo</option></select></label>
+          <fieldset class="config-card"><legend><span>01</span> 정책과 환경</legend><p>어디에서, 어떤 방법으로 배울까요?</p><div class="config-fields"><label>학습 환경<select id="trainingEnvironment"><option value="pusht">PushT · Pymunk</option><option value="aloha">ALOHA · Peg insertion · MuJoCo</option><option value="transfer">ALOHA · Cube transfer · MuJoCo</option><option value="libero_drawer">LIBERO · 가운데 서랍 열기 · MuJoCo</option><option value="libero_basket">LIBERO · 수프 통조림 바구니 넣기 · MuJoCo</option></select></label>
 <label>학습 방법<select id="trainingAlgorithm"><option value="act">ACT · 모방학습</option><option value="diffusion">Diffusion Policy · 모방학습</option><option value="ppo">PPO · 강화학습</option><option value="sac">SAC · 강화학습</option></select></label>
 <label>실행 방식<select id="trainingMode"><option value="new">새 모델 학습</option><option value="finetune">저장 모델 미세조정</option><option value="resume">체크포인트에서 이어 학습</option></select></label>
 <label id="trainingSourceLabel" hidden>이어 학습할 기록<select id="trainingSource"></select></label></div></fieldset>
