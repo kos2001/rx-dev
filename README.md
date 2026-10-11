@@ -1,4 +1,5 @@
-# Robot Lab · 로봇 학습과 Agent 솔루션 플랫폼
+# rx-dev — Robot Lab · 로봇 학습과 Agent 솔루션 플랫폼
+<p><strong lang="ko">한국어</strong> · <a href="README.en.md" lang="en">English</a></p>
 
 로봇 정책 학습, 시뮬레이터 평가, Agent를 통한 실험 개선을 연결하는 로컬 플랫폼입니다.
 플랫폼 홈에서 모방·강화학습, Agent 실험 설계, 정책 검증 솔루션으로 이동하고
@@ -6,6 +7,23 @@
 학습 워크스페이스는 학습 → 평가 → Agent 실험 → 기록·재개의 흐름으로 구성합니다.
 Hermes `rx-dev` 프로필의 분석·설계·검토 역할은 실험 근거를 읽고 설정 후보를
 실제 시뮬레이터에서 비교합니다. 실시간 제어에는 LLM을 호출하지 않습니다.
+
+## 목차
+
+- [실행](#실행)
+- [화면](#화면)
+- [교육용 시각화](#교육용-시각화)
+- [학습 & Agents 카드 워크스페이스](#학습--agents-카드-워크스페이스)
+- [macOS LIBERO 학습 정책의 실제 과제 성공](#macos-libero-학습-정책의-실제-과제-성공)
+- [macOS LIBERO 구동 검증](#macos-libero-구동-검증)
+- [여러 방식의 모델 학습과 평가](#여러-방식의-모델-학습과-평가)
+- [Hermes 설정](#hermes-설정)
+- [Agent 실행 범위와 결과](#agent-실행-범위와-결과)
+- [역할별 스킬과 제어기 개선](#역할별-스킬과-제어기-개선)
+- [모델 학습과 Agent·스킬 연결](#모델-학습과-agent스킬-연결)
+- [후보 설정 비교 영상](#후보-설정-비교-영상)
+- [검증](#검증)
+- [라이선스](#라이선스)
 
 ## 실행
 
@@ -26,6 +44,17 @@ MuJoCo ALOHA의 학습·평가와 학습 Agent 실험도 실행할 수 있습니
 `frontend/assets/success/`에 포함합니다. 이 영상들은 백엔드나 로컬 `outputs/` 없이도 재생됩니다.
 README의 과거 실행 ID와 결과 경로는 개발 환경의 검증 기록이며 새로 받은 코드에는 없습니다.
 `outputs/`의 기록은 직접 학습·평가를 실행하면 생성됩니다.
+
+## 화면
+
+| | |
+|---|---|
+| ![플랫폼 홈](docs/img/platform-home.png) | ![학습 & Agents 워크스페이스](docs/img/learning-workspace.png) |
+| 플랫폼 홈 — 저장소에 포함된 MuJoCo ALOHA 큐브 전달 성공 영상과 학습 방법·환경·Agent 역할 요약 | 학습 & Agents — 모방·강화학습 개념도와 학습 → 평가 → Agent → 재개 흐름 (새 클론이라 학습 기록은 0건) |
+| ![환경 라이브러리](docs/img/environment-library.png) | |
+| 환경 라이브러리 — PushT, ALOHA Peg insertion / Cube transfer, Meta-World, LIBERO, LeIsaac 카드와 실행 가능 상태 | |
+
+스크린샷은 LeRobot·MuJoCo 가상환경 없이 백엔드(`python3 -m backend.server`, 표준 라이브러리만 사용)와 정적 프론트엔드만 띄워 찍은 것이다. 학습·평가 기록(`outputs/`)이 없으므로 결과 카드는 비어 있다.
 
 ## 교육용 시각화
 
@@ -450,3 +479,7 @@ Agent 상태 API: `/api/agents/health`, `/api/agents/current`.
 VeriHarness의 불일치 검증·합의 반례 탐색과 Learn Harness Engineering의 상태 저장·검증 원칙을 학습 실험에 적용했습니다. 개발 평가 뒤 기준·후보 체크포인트를 고정하고, 별도 최종 Seed로 다시 평가합니다. 화면에서 최종 성공률 구간, 짝지은 검정, 퇴행·공통 실패 Seed, 성공 상태 유지 여부와 단계별 실행 기록을 확인할 수 있습니다. 중단된 실험은 **저장된 실험 재개** 버튼으로 이어갈 수 있습니다. 완료된 단계는 재사용하고 미완료 학습·평가는 같은 설정으로 처음부터 실행합니다.
 
 이는 두 저장소의 원칙을 현재 서비스에 맞춰 구현한 것으로, 원본 런타임 전체를 설치한 것은 아닙니다. 작은 표본의 성공 수 증가를 최종 개선으로 단정하거나 모델을 자동 채택하지 않습니다. 설계·재개 조건과 검증 명령은 [실험 하네스 문서](docs/learning-harness.md)에 있습니다.
+
+## 라이선스
+
+MIT — [LICENSE](LICENSE) 참고.
